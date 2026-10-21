@@ -140,6 +140,15 @@ diff -ru services/site/src /tmp/pure-new/src | less
 
 拉取时把上游 commit 记下来，便于回溯：`git ls-remote https://github.com/cworld1/astro-theme-pure.git main`。
 
+**注意 `packages/pure` 现在参与构建。** Dockerfile 把 `node_modules/astro-pure` 指向了这个本地包，
+所以我们对组件的改动是直接改在这里的。升级时要**连 `packages/pure` 一起对比**：
+
+```bash
+diff -ru services/site/packages/pure /tmp/pure-new/packages/pure | less
+```
+
+只搬 `src` 不搬包，会出现"页面结构和组件实现对不上"的情况。
+
 ## 四条约定
 
 1. **一个服务一个目录**，总入口只做 include 聚合，接入与移除不牵连其他服务。

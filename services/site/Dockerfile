@@ -28,6 +28,12 @@ RUN bun install --frozen-lockfile
 COPY . .
 
 ENV ASTRO_TELEMETRY_DISABLED=1
+# 让 astro-pure 指向本地 packages/pure，这样改组件才会生效。
+# 主题提供了 BUN_LINK_PKG=true 让 `astro-pure check` 自动 bun link，
+# 但 bun 不会覆盖已存在的目录（EEXIST），而且这种情况下退出码仍是 0，
+# 不报错也不生效——所以这里显式替换成软链接。
+RUN rm -rf node_modules/astro-pure \
+    && ln -s ../packages/pure node_modules/astro-pure
 # 走完整构建：astro-pure check + astro check + astro build
 RUN bun run build
 
