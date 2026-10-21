@@ -18,11 +18,15 @@ include:
 
   - ./nginx/compose.yml
   - ./services/site/compose.yml
-  - ./services/hello-api/compose.yml
   - ./services/postgres/compose.yml
   - ./services/redis/compose.yml
   # ↑ 一个服务一行。compose 不保证 include 的加载顺序，
   #   但按"入口 → 业务 → 数据"排列，读起来更清楚。
+
+  # services/hello-api 与 services/_template 一样只作参考样板，不编入编排：
+  # 它没有业务价值，却要占 256M 内存。需要试跑时把它加回 include，
+  # 并同步在 nginx 里补一段 location —— 少了这段，nginx 会因
+  # host not found in upstream 起不来。
 
   # 新服务接入后在此追加：
   # - ./services/<service-name>/compose.yml
