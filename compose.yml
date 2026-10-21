@@ -17,6 +17,7 @@ include:
   #   - 服务之间的依赖与网络关系在同一项目内可见
 
   - ./nginx/compose.yml
+  - ./services/site/compose.yml
   - ./services/hello-api/compose.yml
   - ./services/postgres/compose.yml
   - ./services/redis/compose.yml

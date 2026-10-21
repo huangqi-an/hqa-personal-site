@@ -1,98 +1,54 @@
+# ─────────────────────────────────────────────────────────────────────
+# 个人站（Astro SSR）生产定义
 #
-# Local Docker workflows
+# 只声明生产运行需要的那一个容器。本地开发工作流（构建 / 预览 / dev）
+# 在上游自带的 compose.dev.yml 里，两者不要混用：
+#   docker compose up -d site                       # 生产
+#   docker compose -f compose.dev.yml --profile dev up   # 本地开发
 #
-# The services are profile-based so you can choose the workflow you need.
-#
-# Build the site and export the generated `dist/` to the host:
-#   docker compose --profile build up --build
-#
-# Preview the production build at http://localhost:4321:
-#   docker compose --profile preview up --build
-#
-# Start the Astro development server with source files mounted:
-#   docker compose --profile dev up --build
-#
-# Create a new article:
-#   docker compose --profile new run --rm new
-#
-# `--build` forces Docker to rebuild the image when the Dockerfile or build
-# context changes. It is useful after changing dependencies or Docker config.
-#
-# The `preview` workflow runs the `build` service first and starts the
-# Astro preview server only after the build completes successfully.
-#
-# The `dev` workflow mounts the repository into the container, so source
-# changes are reflected immediately without rebuilding the image each time.
-#
-# The `new` workflow mounts `src/` and runs `astro-pure new` without
-# leaving a long-running container behind.
-#
-
-x-image: &default-image astro-pure:local
+# 不声明 ports：只经入口层 nginx 访问，宿主机与公网都不可直达。
+# ─────────────────────────────────────────────────────────────────────
 
 services:
-  build:
-    profiles: [build, preview]
+  site:
     build:
       context: .
-      target: build
-    image: *default-image
-    pull_policy: never
-    working_dir: /web
-    volumes:
-      - dist:/web/dist
-      - ./dist:/export
-    command: >
-      sh -c "bun run build &&
-             find /export -mindepth 1 -print -delete &&
-             cp -rv /web/dist/. /export/"
-    restart: "no"
+      dockerfile: Dockerfile
+    container_name: site
+    # ↑ 固定容器名 = web-net 内的 DNS 名，nginx 直接写 http://site:4321
 
-  preview:
-    profiles: [preview]
-    build:
-      context: .
-      target: build
-    image: *default-image
-    pull_policy: never
-    working_dir: /web
-    depends_on:
-      build:
-        condition: service_completed_successfully
-    ports:
-      - "4321:4321"
-    volumes:
-      - dist:/web/dist
-    command: bun run preview --host 0.0.0.0
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      # 显式声明监听地址：只监听 127.0.0.1 的话 nginx 反代会 502
+      HOST: 0.0.0.0
+      PORT: 4321
 
-  dev:
-    profiles: [dev]
-    build:
-      context: .
-      target: build
-    image: *default-image
-    pull_policy: never
-    working_dir: /web
-    ports:
-      - "4321:4321"
-    volumes:
-      - .:/web
-      - node_modules:/web/node_modules
-    command: bun run dev --host 0.0.0.0
+    networks:
+      - web-net
 
-  new:
-    profiles: [new]
-    build:
-      context: .
-      target: build
-    image: *default-image
-    pull_policy: never
-    working_dir: /web
-    volumes:
-      - ./src/content:/web/src/content
-    command: bun run pure new
-    restart: "no"
+    mem_limit: 256m
+    # ↑ 实测常驻约 100~150MB，留出构建缓存与图片处理的余量（见架构文档 §7）
 
-volumes:
-  dist:
-  node_modules:
+    healthcheck:
+      # node:22-slim 里没有 wget / curl，用 node 自带的 fetch 探活
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4321/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      # 比 nginx 长：Node 冷启动要读配置、初始化 sharp，太快容易假失败
+      start_period: 20s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  web-net:
+    external: true
