@@ -281,3 +281,21 @@ span.katex-display {
     border-radius: 999px;
   }
 }
+
+/* ── 隐藏主题自带的赞助入口 ───────────────────────────────────────────
+   「Buy me a cup of coffee」写死在 astro-pure 的 Copyright 组件里，没有开关：
+
+     <div class='mx-6 rounded-b-xl border ...'>
+       <a href='/projects#sponsorship'>Buy me a cup of coffee ☕.</a>
+     </div>
+
+   用 :has 选中承载它的外层 div，连同边框一起隐藏——只藏 <a> 会留下一个空框。
+   不支持 :has 的浏览器退化成只隐藏链接，不会报错。
+   想恢复：删掉这一节即可。 */
+div:has(> a[href='/projects#sponsorship']) {
+  display: none;
+}
+
+a[href='/projects#sponsorship'] {
+  display: none;
+}
