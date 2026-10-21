@@ -72,8 +72,7 @@ export const theme: ThemeUserConfig = {
     credits: true,
     /** Optional details about the social media accounts for this site. */
     social: [
-      { icon: 'github', label: 'GitHub', href: 'https://github.com/huangqi-an' },
-      { icon: 'rss', label: 'RSS', href: '/rss.xml' }
+      { icon: 'github', label: 'GitHub', href: 'https://github.com/huangqi-an' }
     ]
   },
 

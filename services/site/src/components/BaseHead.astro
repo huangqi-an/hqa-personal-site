@@ -79,13 +79,15 @@ const socialImageURL = new URL(ogImage ? ogImage : config.socialCard, Astro.url)
 {/* Sitemap */}
 <link href='/sitemap-index.xml' rel='sitemap' />
 
-{/* RSS auto-discovery */}
+{/* RSS auto-discovery 已关闭：feed 仍然生成，但不在 <head> 里广播。
+   想恢复把下面这段取消注释即可。
 <link
   rel='alternate'
   type='application/rss+xml'
   title={config.title}
   href={`${Astro.site}rss.xml`}
 />
+*/}
 
 <meta content={Astro.generator} name='generator' />
 
