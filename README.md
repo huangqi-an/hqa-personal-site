@@ -1,88 +1,132 @@
-# Multi-Service Template
+# HQA Personal Site
 
-**单机多服务基础设施模板**：nginx 统一入口 + 可插拔业务服务 + PostgreSQL / Redis 数据层，
-全部用 Docker Compose 编排。目标环境是一台 2 核 2G 的轻量服务器，所以
-**资源上限、网络分域、服务可插拔**这三件事是模板的核心，不是可选项。
+个人站。前端基于 [astro-theme-pure](https://github.com/cworld1/astro-theme-pure) 改造为 **Astro SSR**，
+页面与 API 跑在同一个 Node 进程里；整体运行在单机 Docker Compose 架构上：nginx 统一入口，
+PostgreSQL / Redis 只在内部网络可达。
 
-拿它开新项目：在 GitHub 上点 **Use this template**，或 clone 后删掉 `.git` 重新 `git init`。
+目标环境是一台 2 核 2G 的轻量服务器，所以**资源上限、网络分域、服务可插拔**是硬约束。
+为什么这么定、踩过哪些坑，都在 [`docs/架构设计.md`](docs/架构设计.md)。
 
 ## 快速开始
 
 前提：Docker 与 **Compose v2.20+**（用到了 `include`）。
 
 ```bash
-# 1. 创建两个外部网络
-#     compose 里声明为 external，意味着它只管使用、不负责创建
+# 1. 创建两个外部网络（首次部署必跑，幂等）
 ./scripts/init-networks.sh
 
-# 2. 数据层的密码（.env 不入库，只提交 .env.example）
-cp services/postgres/.env.example services/postgres/.env   # 改掉 change-me
+# 2. 数据层密码（.env 不入库，仓库里只有 .env.example）
+cp services/postgres/.env.example services/postgres/.env
+# 把 change-me 换成随机值，生成方式见 docs/架构设计.md §9.7
+chmod 600 services/postgres/.env
 
-# 3. 示例服务的环境变量
-cp services/hello-api/.env.example services/hello-api/.env
+# 3. 构建并启动
+docker compose build site
+docker compose up -d site nginx
 
-# 4. 起来
-docker compose up -d
-docker compose ps
-curl http://localhost/hello/
+# 4. 验证
+curl -I http://localhost/            # 200
+curl http://localhost/healthz        # ok —— 这是入口层自己的探针
+docker compose ps                    # site 应为 healthy
 ```
+
+> 不带服务名执行 `docker compose up -d` 会连 postgres / redis 一起拉起来。只要站点时显式写服务名。
 
 ## 目录
 
 ```
-compose.yml            总入口：只写 include，不含服务定义
-nginx/                 入口层：:80 路由表
+compose.yml              总入口：只写 include，不含服务定义
+nginx/                   入口层：:80 路由，/ 反代到 site:4321
 services/
-  _template/           服务模板（不是可运行服务，总入口不 include）
-  hello-api/           最小示例，可直接删
-  postgres/            PostgreSQL 17
-  redis/               Redis 7
-data/                  持久化数据（已 gitignore；属主是容器内 uid，清理需 sudo）
-scripts/
-  init-networks.sh     创建 external 网络（首次部署必跑）
-  new-service.sh       从模板生成新服务
-docs/                  架构设计文档
+  site/                  个人站：Astro SSR（页面 + API），自带 Dockerfile
+  postgres/              PostgreSQL 17（仅 db-net）
+  redis/                 Redis 7（仅 db-net）
+  hello-api/             参考样板，未编入编排、不启动
+  _template/             新服务脚手架（不是可运行服务）
+apps/                    纯静态站备选路径（当前未使用）
+data/                    持久化数据（已 gitignore，属主是容器内 uid，清理需 sudo）
+scripts/                 网络初始化、服务脚手架
+docs/                    架构设计文档
 ```
 
-## 自带的服务
+## 服务
 
 | 服务 | 对外入口 | 内存上限 | 说明 |
 |---|---|---|---|
 | nginx | `:80` | 128m | 唯一对外入口 |
-| hello-api | `/hello/` | 256m | 最小示例，Go，可删 |
+| site | `/`（反代） | 256m | Astro SSR，页面与 API 同进程，实测空闲约 62MiB |
 | postgres | 仅 `db-net` | 512m | 5432，不映射宿主机 |
 | redis | 仅 `db-net` | 128m | 6379，不映射宿主机 |
 
-## 新增一个服务
+`hello-api` 保留作参考样板，不占内存预算。
+
+## 日常操作
+
+```bash
+docker compose ps
+docker compose logs -f site
+docker compose up -d --build site     # 改代码或内容后重建
+
+# 只改了 nginx 路由时，热加载就够
+docker compose exec nginx nginx -t
+docker compose exec nginx nginx -s reload
+```
+
+改 `services/site` 里的任何东西（页面、内容、配置）都要**重建**，reload nginx 不会让构建产物变化。
+
+## 写内容、加页面、加 API
+
+内容放在 `services/site/src/content/`。页面和 API 都在 `services/site/src/pages/` 下，
+区别只在**渲染方式**：
+
+```ts
+// 纯静态内容：构建期生成 HTML，运行时零开销
+export const prerender = true
+
+// 需要运行时：读库、处理表单、按请求渲染
+export const prerender = false
+```
+
+`output: 'server'` 下**不写就是动态的**。主题里博客列表、文章页、标签页已经写死
+`prerender = true`，新加的页面要自己明确选边，否则每个请求都会跑一遍渲染。
+
+一个 API 路由长这样：
+
+```ts
+// src/pages/api/contact.ts
+import type { APIRoute } from 'astro'
+
+export const prerender = false
+
+export const POST: APIRoute = async ({ request }) => {
+  const body = await request.json()
+  // 校验输入、落库……
+  return new Response(JSON.stringify({ ok: true }), { status: 200 })
+}
+```
+
+## 新增一个后端服务
 
 ```bash
 ./scripts/new-service.sh my-service
 ```
 
-脚本会复制模板、替换占位符、剥掉只对模板有意义的说明，然后打印还要做的三步：
+然后四件事：根 `compose.yml` 的 `include` 加一行 → `nginx/conf.d/default.conf` 加一段
+`location` → 端口登记到 `docs/架构设计.md` §8 → `docker compose up -d --build`。
 
-1. 根 `compose.yml` 的 `include` 里加一行
-2. `nginx/conf.d/default.conf` 里加一段 `location`
-3. `cp .env.example .env` 后 `docker compose up -d --build`
+**加了 `location` 就必须有对应容器**。nginx 启动时解析所有 upstream 的容器名，
+缺一个就 `host not found in upstream` 直接退出并反复重启。
 
-**有写操作（POST/PUT/DELETE）的路由不要用 301 补斜杠**——301 会让客户端把方法
-改成 GET 并丢掉请求体，写操作会悄悄变成读操作。纯 GET 的路由用 301 没问题。
+## 升级上游主题
 
-### 要连数据库的话
-
-```yaml
-    networks:
-      - web-net
-      - db-net          # ← 加上这个
-```
-
-环境变量里主机名写 **容器名 `postgres`**，不是 `localhost`。另外 `depends_on`
-只保证启动顺序、不保证数据库能接受连接，应用要自己轮询等待。
-完整实现（连接池、等待重试、迁移）见 git 历史：
+`services/site` 是 vendored 的上游模板（已删掉它自己的 `.git`），升级时**对比着搬**，不要整目录覆盖：
 
 ```bash
-git show 6f076bd -- services/notes-api
+git clone --depth 1 https://github.com/cworld1/astro-theme-pure.git /tmp/pure-new
+diff -ru services/site/src /tmp/pure-new/src | less
 ```
+
+拉取时把上游 commit 记下来，便于回溯：`git ls-remote https://github.com/cworld1/astro-theme-pure.git main`。
 
 ## 四条约定
 
@@ -90,3 +134,15 @@ git show 6f076bd -- services/notes-api
 2. **服务名 = 容器名 = 内部域名**，反代直接写容器名，不依赖 IP。
 3. **统一在根目录启停**。各服务固定了 `container_name`，在子目录另起项目会撞名。
 4. **数据组件不映射端口**，只在 `db-net` 内可达；入口层只接 `web-net`。
+
+## 已知坑
+
+完整清单见 `docs/架构设计.md` §9.5，最常撞的五个：
+
+- **`@astrojs/node` 大版本要和 `astro` 对齐**。装错时构建全绿、启动才报
+  `app.getLogger is not a function`；当前组合是 `astro@6.4.8` + `@astrojs/node@^10.1.4`。
+- **正文里的远程图片会在构建期下载**（推算宽高并优化），第三方 CDN 一抖，构建就随机失败。
+  图片放 `src/assets/` 或 `public/` 更稳。
+- **`env_file` 指向不存在的文件会让整份编排解析失败**，`environment` 才有默认值兜底。
+- **`nginx -s reload` 不会重新读 `volumes`**，改挂载必须重建容器。
+- **301 会把 POST 变成 GET**。补尾斜杠只适用于纯读路由，写接口不能靠重定向"纠正"。
