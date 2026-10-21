@@ -3,22 +3,54 @@ import { Button, Icon } from 'astro-pure/user'
 import PageLayout from '@/layouts/CommonPage.astro'
 
 const headings = [
-  { depth: 2, slug: 'now', text: '在做' },
+  { depth: 2, slug: 'projects', text: '项目' },
   { depth: 2, slug: 'more', text: '更多' }
+]
+
+const projects = [
+  {
+    name: '@huangqi_an/hqa-utils',
+    summary: '个人 TypeScript 工具库：异步调度、DOM 小件、存储封装、页面监测等十几个模块。',
+    detail:
+      '按模块组织、按需引入，带完整类型声明；sideEffects 为 false，摇树友好。配套在线文档写了每个函数的用法与示例。',
+    links: [
+      { label: '在线文档', href: 'https://huangqi-an.github.io/hqa-utils/' },
+      { label: 'GitHub', href: 'https://github.com/huangqi-an/hqa-utils' },
+      { label: 'npm', href: 'https://www.npmjs.com/package/@huangqi_an/hqa-utils' }
+    ]
+  }
 ]
 ---
 
 <PageLayout title='项目' {headings}>
-  <p>做过的东西还没整理成条目。先留个位置，免得菜单点进来是空的。</p>
+  <p>做过的东西，整理得像样的会放上来。目前只有这一个。</p>
 
-  <h2 id='now'>在做</h2>
-  <p>
-    主要是这个站本身：Astro 负责渲染，nginx 做入口，整站跑在一台很小的机器上。编排、入口与取舍都写在仓库的
-    <code>docs/架构设计.md</code> 里。
-  </p>
+  <h2 id='projects'>项目</h2>
+
+  {
+    projects.map((project) => (
+      <div class='not-prose my-6 rounded-xl border p-5'>
+        <h3 class='text-lg font-medium'>{project.name}</h3>
+        <p class='mt-3 text-sm text-muted-foreground'>{project.summary}</p>
+        <p class='mt-2 text-sm text-muted-foreground'>{project.detail}</p>
+        <div class='mt-4 flex flex-wrap gap-x-5 gap-y-2'>
+          {project.links.map((link) => (
+            <a
+              class='text-sm text-primary hover:underline'
+              href={link.href}
+              target='_blank'
+              rel='noreferrer'
+            >
+              {link.label} ↗
+            </a>
+          ))}
+        </div>
+      </div>
+    ))
+  }
 
   <h2 id='more'>更多</h2>
-  <p>代码放在 GitHub，零散的东西会陆续挪到这里。</p>
+  <p>其余零散的代码和实验都在 GitHub 上。</p>
   <Button title='GitHub' href='https://github.com/huangqi-an' variant='ahead' class='w-fit'>
     <Icon name='github' class='size-5' slot='before' />
   </Button>
