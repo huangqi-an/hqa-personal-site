@@ -73,7 +73,37 @@ docker compose exec nginx nginx -t
 docker compose exec nginx nginx -s reload
 ```
 
-改 `services/site` 里的任何东西（页面、内容、配置）都要**重建**，reload nginx 不会让构建产物变化。
+改 `services/site` 里的任何东西（页面、内容、配置、样式）都要**重建**——
+文章页和列表页是构建期预渲染成 HTML 的，`dist/` 里已经是成品，改源文件不会自动反映；
+reload nginx 更不会，它只管请求怎么转发。
+
+### 写作时用 dev 模式，省掉反复重建
+
+主题自带一套开发编排，单独起一个容器挂载源码，改文件即时热更新：
+
+```bash
+cd services/site
+docker compose -f compose.dev.yml --profile dev run --rm --service-ports \
+  -u "$(id -u):$(id -g)" dev
+# 浏览器打开 http://<机器IP>:4321
+```
+
+`-u` 不能省：容器默认以 root 运行，而源码是挂载进去的，会往宿主机写
+`.astro/` 这类 root 属主的文件，之后用普通用户跑构建就会撞权限。
+
+它和生产容器互不干扰：端口是 4321（站点不映射宿主，这个端口空着），
+用的是独立镜像 `astro-pure:local`，也会用 `packages/pure` 里的本地组件。
+写完 Ctrl-C 停掉，再回根目录重建一次做最终验证。
+
+同一个文件里还有 `build`（只构建并导出 `dist/`）和 `preview`（预览生产构建）
+两个 profile，用法见 `services/site/compose.dev.yml` 开头的注释。
+
+| 改了什么 | 怎么让本地看到 |
+|---|---|
+| 文章、页面、配置、样式 | `docker compose up -d --build site`（或 dev 模式） |
+| 新增文章 | `./scripts/new-post.sh <slug> "标题"`，再走上一行 |
+| nginx 路由 | `nginx -t` + `nginx -s reload`，不用重建 |
+| Dockerfile / 依赖 | `docker compose build site`（必要时加 `--no-cache`） |
 
 ## 写内容、加页面、加 API
 
