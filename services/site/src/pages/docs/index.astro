@@ -1,0 +1,29 @@
+---
+import { Button } from 'astro-pure/user'
+import { cn } from 'astro-pure/utils'
+import PageLayout from '@/layouts/BaseLayout.astro'
+import { integ } from '@/site-config'
+
+import DocsContents from './DocsContents.astro'
+
+const meta = {
+  title: '文档',
+  description: '这个站怎么用、文章怎么写'
+}
+---
+
+<PageLayout {meta}>
+  <Button title='返回' href='/' variant='back' />
+  <main class='mt-6 lg:mt-10'>
+    <div id='content-header' class='animate'>
+      <h1 class='mb-6 text-3xl font-medium'>文档</h1>
+    </div>
+
+    <div id='content' class={cn('animate mt-8 max-w-none md:min-w-[45ch]', integ.typography.class)}>
+      <p>关于这个站怎么用、文章怎么写。内容还很少，后面遇到什么就补什么。</p>
+
+      <h2 class='text-xl font-medium'>全部文档</h2>
+      <DocsContents title={false} />
+    </div>
+  </main>
+</PageLayout>

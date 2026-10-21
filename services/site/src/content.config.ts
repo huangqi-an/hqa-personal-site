@@ -41,7 +41,20 @@ const blog = defineCollection({
     })
 })
 
-// 文档集合已移除：主题自带的 docs 内容与 /docs 路由已删，个人站不需要这一层。
-// 若以后要加（比如放项目文档），恢复本段并重建 src/pages/docs 路由即可。
+// 文档集合：放站点使用说明与写作约定，条目按 order 排序、按目录分组成侧栏分类。
+const docs = defineCollection({
+  loader: glob({ base: './src/content/docs', pattern: '**/*.{md,mdx}' }),
+  schema: () =>
+    z.object({
+      title: z.string().max(60),
+      description: z.string().max(160),
+      publishDate: z.coerce.date().optional(),
+      updatedDate: z.coerce.date().optional(),
+      tags: z.array(z.string()).default([]).transform(removeDupsAndLowerCase),
+      draft: z.boolean().default(false),
+      // 侧栏内的排序，数字越小越靠前
+      order: z.number().default(999)
+    })
+})
 
-export const collections = { blog }
+export const collections = { blog, docs }
