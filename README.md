@@ -39,13 +39,14 @@ compose.yml              总入口：只写 include，不含服务定义
 nginx/                   入口层：:80 路由，/ 反代到 site:4321
 services/
   site/                  个人站：Astro SSR（页面 + API），自带 Dockerfile
+    templates/post.md    新文章模板
   postgres/              PostgreSQL 17（仅 db-net）
   redis/                 Redis 7（仅 db-net）
   hello-api/             参考样板，未编入编排、不启动
   _template/             新服务脚手架（不是可运行服务）
 apps/                    纯静态站备选路径（当前未使用）
 data/                    持久化数据（已 gitignore，属主是容器内 uid，清理需 sudo）
-scripts/                 网络初始化、服务脚手架
+scripts/                 网络初始化、服务脚手架、新建文章
 docs/                    架构设计文档
 ```
 
@@ -76,8 +77,19 @@ docker compose exec nginx nginx -s reload
 
 ## 写内容、加页面、加 API
 
-内容放在 `services/site/src/content/`。页面和 API 都在 `services/site/src/pages/` 下，
-区别只在**渲染方式**：
+内容放在 `services/site/src/content/`。新建一篇文章：
+
+```bash
+./scripts/new-post.sh hello-world "你好，世界"
+```
+
+脚本会按 `services/site/templates/post.md` 生成 `src/content/blog/hello-world/index.md`，
+自动填标题和日期。**新文章默认 `draft: true`**，不会出现在列表、标签页和搜索索引里；
+写完把 `draft` 改成 `false` 再重建即可。
+
+`title` 上限 60 字、`description` 上限 160 字，超了会被 schema 拒绝、构建直接失败。
+
+页面和 API 都在 `services/site/src/pages/` 下，区别只在**渲染方式**：
 
 ```ts
 // 纯静态内容：构建期生成 HTML，运行时零开销
