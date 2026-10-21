@@ -28,13 +28,23 @@ RUN bun install --frozen-lockfile
 COPY . .
 
 ENV ASTRO_TELEMETRY_DISABLED=1
-# 让 astro-pure 指向本地 packages/pure，这样改组件才会生效。
-# 主题提供了 BUN_LINK_PKG=true 让 `astro-pure check` 自动 bun link，
-# 但 bun 不会覆盖已存在的目录（EEXIST），而且这种情况下退出码仍是 0，
-# 不报错也不生效——所以这里显式替换成软链接。
+
+# 让 astro-pure 指向本地 packages/pure，改组件才会生效。
+#
+# 主题的官方做法是设置 BUN_LINK_PKG=true 让 `astro-pure check` 执行 bun link，
+# 但在本镜像的构建顺序下（先 install 再 link）它不可靠：
+#   $ bun link astro-pure
+#   EEXIST: failed linking dependency/workspace to node_modules for package astro-pure
+#   Failed to install 1 package
+# 而 bun 的退出码仍是 0，check 脚本只判断退出码，于是照样打印
+# "Commands executed successfully."——静默失败，构建继续用 npm 包。
+# 实测过：走这条路产物里看不到对 packages/pure 的改动。
+#
+# 所以这里显式删除目录再建软链，行为确定、不依赖 bun 版本。
 RUN rm -rf node_modules/astro-pure \
     && ln -s ../packages/pure node_modules/astro-pure
-# 走完整构建：astro-pure check + astro check + astro build
+
+# 走完整构建：astro check + astro build
 RUN bun run build
 
 # ── 生产依赖 ──────────────────────────────────────────────────────────
