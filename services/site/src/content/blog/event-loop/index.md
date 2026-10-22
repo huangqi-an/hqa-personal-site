@@ -88,12 +88,12 @@ Node 的事件循环由 libuv 驱动，不是一个队列，而是按阶段轮�
 
 | 阶段 | 处理什么 |
 |---|---|
-| timers | `setTimeout`、`setInterval` 到期回调 |
-| pending callbacks | 上一轮延迟的系统级回调（如 TCP 错误） |
-| idle, prepare | libuv 内部使用 |
-| poll | 等待并执行 I/O 回调，大多数业务代码在这里 |
-| check | `setImmediate` 的回调 |
-| close callbacks | `socket.on('close')` 这类关闭回调 |
+| timers（定时器） | `setTimeout`、`setInterval` 到期回调 |
+| pending callbacks（待处理回调） | 上一轮延迟的系统级回调（如 TCP 错误） |
+| idle, prepare（空闲与准备） | libuv 内部使用 |
+| poll（轮询） | 等待并执行 I/O 回调，大多数业务代码在这里 |
+| check（检查） | `setImmediate` 的回调 |
+| close callbacks（关闭回调） | `socket.on('close')` 这类关闭回调 |
 
 两个容易混淆的点：
 
