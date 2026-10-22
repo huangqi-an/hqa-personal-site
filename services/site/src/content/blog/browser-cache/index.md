@@ -1,5 +1,5 @@
 ---
-title: '浏览器缓存：从 Cache-Control 到 304'
+title: '浏览器缓存'
 publishDate: 2023-09-28
 description: '强缓存为什么不发请求，协商缓存为什么只回 304：把 Cache-Control 指令、ETag 与 Last-Modified 串成一条判定链。'
 tags:
