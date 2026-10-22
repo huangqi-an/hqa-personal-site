@@ -69,6 +69,7 @@ docs/                    架构设计文档
 docker compose ps
 docker compose logs -f site
 docker compose up -d --build site     # 改代码或内容后重建
+./scripts/preview.sh                  # 同上，并等到首页返回 200 再打印地址
 
 # 只改了 nginx 路由时，热加载就够
 docker compose exec nginx nginx -t
