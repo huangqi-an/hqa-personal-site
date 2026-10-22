@@ -5,8 +5,6 @@ publishDate: 2026-10-22
 order: 2
 ---
 
-本篇讲命令怎么敲；改 `compose.yml` 里的字段写法见 [Compose 文件参考](/docs/docker/compose-file)。
-
 ## 变更对照表
 
 修改内容与对应命令。

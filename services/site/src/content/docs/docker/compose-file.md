@@ -5,8 +5,6 @@ publishDate: 2026-10-22
 order: 3
 ---
 
-本篇讲字段怎么写；执行命令、参数与排障见 [Compose](/docs/docker/compose)。
-
 ## 文件结构
 
 ```yaml
