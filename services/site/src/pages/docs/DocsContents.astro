@@ -20,7 +20,8 @@ const docsByCate = docsCollection.reduce((acc: { [key: string]: typeof docsColle
 // 新增分类要在这里加一行；没列出的目录不会出现在侧栏（页面仍可通过 URL 访问）。
 const docCategories: Record<string, string> = {
   guide: '使用指南',
-  docker: 'Docker'
+  docker: 'Docker',
+  nginx: 'Nginx'
 }
 
 type Props = {
