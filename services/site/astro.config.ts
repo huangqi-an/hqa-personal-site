@@ -2,6 +2,7 @@ import { rehypeHeadingIds } from '@astrojs/markdown-remark'
 // import vercel from '@astrojs/vercel'
 import node from '@astrojs/node'
 import AstroPureIntegration from 'astro-pure'
+import type { AstroUserConfig } from 'astro'
 import { defineConfig, fontProviders, svgoOptimizer } from 'astro/config'
 import rehypeKatex from 'rehype-katex'
 import remarkMath from 'remark-math'
@@ -24,7 +25,9 @@ import {
 import config from './src/site.config.ts'
 
 // https://astro.build/config
-export default defineConfig({
+// 标注类型的原因：local provider 的 options 不会被推断出来；
+// 若不标注，defineConfig 的推断类型会引用私有的 LocalFamilyOptions，声明生成报 ts(2883)。
+const astroConfig: AstroUserConfig<never, never, [ReturnType<typeof fontProviders.local>]> = {
   // [Basic]
   // site: 'https://astro-pure.js.org',
   site: 'http://192.168.198.101',
@@ -60,17 +63,18 @@ export default defineConfig({
   // https://docs.astro.build/en/guides/fonts/
   fonts: [
     {
-      provider: fontProviders.fontshare(),
+      // 字体自托管：构建时不再请求 fontshare，CDN 抖动不会导致构建失败。
+      provider: fontProviders.local(),
       name: 'Satoshi',
       cssVariable: '--font-satoshi',
-      // Default included:
-      // weights: [400],
-      // styles: ["normal", "italics"],
-      // subsets: ["cyrillic-ext", "cyrillic", "greek-ext", "greek", "vietnamese", "latin-ext", "latin"],
-      // fallbacks: ["sans-serif"],
-      styles: ['normal', 'italic'],
-      weights: [400, 500],
-      subsets: ['latin']
+      options: {
+        variants: [
+          { weight: 400, style: 'normal', src: ['./src/assets/fonts/satoshi-400.woff2'] },
+          { weight: 400, style: 'italic', src: ['./src/assets/fonts/satoshi-400-italic.woff2'] },
+          { weight: 500, style: 'normal', src: ['./src/assets/fonts/satoshi-500.woff2'] },
+          { weight: 500, style: 'italic', src: ['./src/assets/fonts/satoshi-500-italic.woff2'] }
+        ]
+      }
     }
   ],
 
@@ -144,4 +148,7 @@ export default defineConfig({
       enabled: true
     }
   }
-})
+}
+
+// 断言同样是为了绕开 ts(2883)
+export default defineConfig(astroConfig) as AstroUserConfig
