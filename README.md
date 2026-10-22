@@ -6,7 +6,8 @@ PostgreSQL / Redis 只在内部网络可达。
 
 目标环境是一台 2 核 2G 的轻量服务器，所以**资源上限、网络分域、服务可插拔**是硬约束。
 为什么这么定、踩过哪些坑，都在 [`docs/架构设计.md`](docs/架构设计.md)。
-日常该敲哪条命令、哪里容易踩空，在 [`docs/Docker速查.md`](docs/Docker速查.md)。
+日常的 Docker 命令速查已经发布到站点文档（站内路径 `/docs/docker/basics`、`compose`、`troubleshooting`），
+源文件在 [`services/site/src/content/docs/docker/`](services/site/src/content/docs/docker/)。
 
 ## 快速开始
 
