@@ -93,6 +93,24 @@ docker compose -f compose.dev.yml --profile dev run --rm --service-ports \
 `-u` 不能省：容器默认以 root 运行，而源码是挂载进去的，会往宿主机写
 `.astro/` 这类 root 属主的文件，之后用普通用户跑构建就会撞权限。
 
+如果启动后 4321 页面没有样式，先看容器日志：
+
+```bash
+docker logs $(docker ps --filter publish=4321 --format '{{.Names}}' | head -1) 2>&1 | grep -i error
+```
+
+出现 `EACCES: permission denied, mkdir '/web/node_modules/.vite/...'`，
+说明 `site_node_modules` 这个卷是早前用 root 跑 dev 时创建的，普通用户写不进去，
+Vite 的依赖预构建失败，样式（由 JS 模块注入）就整个没了。改一下卷属主再重启：
+
+```bash
+docker rm -f $(docker ps --filter publish=4321 --format '{{.Names}}' | head -1)
+docker run --rm -v site_node_modules:/nm alpine chown -R "$(id -u):$(id -g)" /nm
+```
+
+注意 4321 是开发服务器，样式靠 Vite 的 JS 模块注入，**浏览器禁用 JS 或模块加载失败时页面会完全没有样式**；
+访客看到的站点在 80 端口，样式随构建产物直接下发，不依赖 JS。
+
 它和生产容器互不干扰：端口是 4321（站点不映射宿主，这个端口空着），
 用的是独立镜像 `astro-pure:local`，也会用 `packages/pure` 里的本地组件。
 写完 Ctrl-C 停掉，再回根目录重建一次做最终验证。
