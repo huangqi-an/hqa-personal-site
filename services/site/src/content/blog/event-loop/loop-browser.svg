@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 460" width="900" height="460" role="img" aria-labelledby="title desc">
+  <title id="title">浏览器事件循环</title>
+  <desc id="desc">同步代码在调用栈执行，异步任务交给宿主环境，完成后回调进入微任务或宏任务队列，事件循环在栈空时取回执行。</desc>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#9aa6b2"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="900" height="460" rx="14" fill="#fbfbfb"/>
+
+  <!-- 调用栈 -->
+  <rect x="40" y="70" width="200" height="280" rx="10" fill="#eef4fb" stroke="#c9d8e9"/>
+  <text x="140" y="98" text-anchor="middle" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" font-size="15" font-weight="600" fill="#2b3138">调用栈</text>
+
+  <rect x="70" y="120" width="140" height="44" rx="6" fill="#ffffff" stroke="#c9d8e9"/>
+  <text x="140" y="148" text-anchor="middle" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="14" fill="#2b3138">main()</text>
+
+  <rect x="70" y="176" width="140" height="44" rx="6" fill="#ffffff" stroke="#c9d8e9"/>
+  <text x="140" y="204" text-anchor="middle" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="14" fill="#2b3138">a()</text>
+
+  <rect x="70" y="232" width="140" height="44" rx="6" fill="#ffffff" stroke="#c9d8e9"/>
+  <text x="140" y="260" text-anchor="middle" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="14" fill="#2b3138">b()</text>
+
+  <text x="140" y="318" text-anchor="middle" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" font-size="12" fill="#5b6672">后进先出，栈空才轮到队列</text>
+
+  <!-- 宿主环境 -->
+  <rect x="330" y="70" width="230" height="280" rx="10" fill="#ffffff" stroke="#d8dde3"/>
+  <text x="445" y="98" text-anchor="middle" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" font-size="15" font-weight="600" fill="#2b3138">宿主环境</text>
+  <text x="445" y="118" text-anchor="middle" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" font-size="12" fill="#5b6672">浏览器内核，不在 JS 引擎里</text>
+
+  <rect x="355" y="140" width="180" height="40" rx="6" fill="#f7f8fa" stroke="#e2e6ea"/>
+  <text x="445" y="166" text-anchor="middle" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" font-size="13" fill="#3a424b">定时器</text>
+
+  <rect x="355" y="192" width="180" height="40" rx="6" fill="#f7f8fa" stroke="#e2e6ea"/>
+  <text x="445" y="218" text-anchor="middle" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" font-size="13" fill="#3a424b">网络请求</text>
+
+  <rect x="355" y="244" width="180" height="40" rx="6" fill="#f7f8fa" stroke="#e2e6ea"/>
+  <text x="445" y="270" text-anchor="middle" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" font-size="13" fill="#3a424b">DOM 事件</text>
+
+  <!-- 微任务队列 -->
+  <rect x="640" y="70" width="220" height="130" rx="10" fill="#fdf6e9" stroke="#ecd9b0"/>
+  <text x="750" y="96" text-anchor="middle" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" font-size="15" font-weight="600" fill="#2b3138">微任务队列</text>
+  <text x="750" y="116" text-anchor="middle" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" font-size="12" fill="#7a6636">每轮清空，优先级更高</text>
+  <text x="750" y="150" text-anchor="middle" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="13" fill="#3a424b">Promise.then</text>
+  <text x="750" y="172" text-anchor="middle" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="13" fill="#3a424b">queueMicrotask</text>
+
+  <!-- 宏任务队列 -->
+  <rect x="640" y="220" width="220" height="130" rx="10" fill="#eef6f0" stroke="#c6ddcd"/>
+  <text x="750" y="246" text-anchor="middle" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" font-size="15" font-weight="600" fill="#2b3138">宏任务队列</text>
+  <text x="750" y="266" text-anchor="middle" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" font-size="12" fill="#4a6b55">每轮取一个</text>
+  <text x="750" y="300" text-anchor="middle" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="13" fill="#3a424b">setTimeout 回调</text>
+  <text x="750" y="322" text-anchor="middle" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="13" fill="#3a424b">点击回调</text>
+
+  <!-- 箭头：栈 → 宿主 -->
+  <path d="M 240 130 L 330 130" stroke="#9aa6b2" stroke-width="1.6" fill="none" marker-end="url(#arrow)"/>
+  <text x="285" y="120" text-anchor="middle" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" font-size="12" fill="#5b6672">调用</text>
+
+  <!-- 箭头：宿主 → 微任务 -->
+  <path d="M 560 150 L 640 135" stroke="#9aa6b2" stroke-width="1.6" fill="none" marker-end="url(#arrow)"/>
+  <text x="600" y="130" text-anchor="middle" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" font-size="12" fill="#5b6672">完成</text>
+
+  <!-- 箭头：宿主 → 宏任务 -->
+  <path d="M 560 250 L 640 280" stroke="#9aa6b2" stroke-width="1.6" fill="none" marker-end="url(#arrow)"/>
+  <text x="600" y="278" text-anchor="middle" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" font-size="12" fill="#5b6672">完成</text>
+
+  <!-- 箭头：微任务 → 栈（优先） -->
+  <path d="M 750 70 L 750 46 L 140 46 L 140 70" stroke="#c08a2e" stroke-width="1.6" fill="none" stroke-dasharray="5 4" marker-end="url(#arrow)"/>
+  <text x="445" y="38" text-anchor="middle" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" font-size="12" fill="#8a6a2a">先清空微任务（优先级更高）</text>
+
+  <!-- 箭头：宏任务 → 栈（每轮一个） -->
+  <path d="M 750 350 L 750 400 L 140 400 L 140 350" stroke="#4a7c59" stroke-width="1.6" fill="none" marker-end="url(#arrow)"/>
+  <text x="445" y="392" text-anchor="middle" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" font-size="12" fill="#4a6b55">事件循环取一个宏任务压栈</text>
+</svg>

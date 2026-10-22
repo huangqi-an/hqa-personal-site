@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 500" width="900" height="500" role="img" aria-labelledby="title desc">
+  <title id="title">Node 事件循环的六个阶段</title>
+  <desc id="desc">libuv 按 timers、pending callbacks、idle/prepare、poll、check、close callbacks 六个阶段顺时针轮转，每个阶段回调之后清空 nextTick 与微任务队列。</desc>
+
+  <rect x="0" y="0" width="900" height="500" rx="14" fill="#fbfbfb"/>
+
+  <!-- 轮转虚线 -->
+  <ellipse cx="450" cy="250" rx="330" ry="190" fill="none" stroke="#d8dde3" stroke-width="1.6" stroke-dasharray="6 6"/>
+
+  <!-- 方向箭头 -->
+  <polygon points="780,238 792,250 780,262" fill="#9aa6b2"/>
+  <polygon points="462,440 450,452 438,440" fill="#9aa6b2"/>
+  <polygon points="120,262 108,250 120,238" fill="#9aa6b2"/>
+  <polygon points="438,60 450,48 462,60" fill="#9aa6b2"/>
+
+  <!-- 中心说明 -->
+  <text x="450" y="236" text-anchor="middle" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" font-size="16" font-weight="600" fill="#2b3138">一次轮转</text>
+  <text x="450" y="262" text-anchor="middle" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" font-size="12" fill="#5b6672">每个阶段回调之后</text>
+  <text x="450" y="282" text-anchor="middle" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" font-size="12" fill="#5b6672">清空 nextTick 与微任务</text>
+
+  <!-- timers -->
+  <rect x="350" y="26" width="200" height="64" rx="10" fill="#eef4fb" stroke="#c9d8e9"/>
+  <text x="450" y="52" text-anchor="middle" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="14" font-weight="600" fill="#2b3138">timers</text>
+  <text x="450" y="74" text-anchor="middle" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" font-size="12" fill="#5b6672">setTimeout / setInterval 到期</text>
+
+  <!-- pending -->
+  <rect x="642" y="128" width="200" height="64" rx="10" fill="#ffffff" stroke="#d8dde3"/>
+  <text x="742" y="154" text-anchor="middle" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="14" font-weight="600" fill="#2b3138">pending callbacks</text>
+  <text x="742" y="176" text-anchor="middle" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" font-size="12" fill="#5b6672">延迟的系统级回调</text>
+
+  <!-- idle -->
+  <rect x="642" y="318" width="200" height="64" rx="10" fill="#ffffff" stroke="#d8dde3"/>
+  <text x="742" y="344" text-anchor="middle" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="14" font-weight="600" fill="#2b3138">idle, prepare</text>
+  <text x="742" y="366" text-anchor="middle" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" font-size="12" fill="#5b6672">libuv 内部使用</text>
+
+  <!-- poll -->
+  <rect x="350" y="408" width="200" height="64" rx="10" fill="#eef6f0" stroke="#c6ddcd"/>
+  <text x="450" y="434" text-anchor="middle" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="14" font-weight="600" fill="#2b3138">poll</text>
+  <text x="450" y="456" text-anchor="middle" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" font-size="12" fill="#5b6672">等待并执行 I/O 回调</text>
+
+  <!-- check -->
+  <rect x="58" y="318" width="200" height="64" rx="10" fill="#ffffff" stroke="#d8dde3"/>
+  <text x="158" y="344" text-anchor="middle" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="14" font-weight="600" fill="#2b3138">check</text>
+  <text x="158" y="366" text-anchor="middle" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" font-size="12" fill="#5b6672">setImmediate 回调</text>
+
+  <!-- close -->
+  <rect x="58" y="128" width="200" height="64" rx="10" fill="#ffffff" stroke="#d8dde3"/>
+  <text x="158" y="154" text-anchor="middle" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="14" font-weight="600" fill="#2b3138">close callbacks</text>
+  <text x="158" y="176" text-anchor="middle" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif" font-size="12" fill="#5b6672">socket 关闭回调</text>
+</svg>
