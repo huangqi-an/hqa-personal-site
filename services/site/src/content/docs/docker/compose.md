@@ -1,128 +1,237 @@
 ---
 title: 'Docker Compose：校验、启停与更新'
-description: '按「改了什么」查表决定用 restart 还是 up -d，并说明配置校验、日志与健康检查、更新和回滚的做法。'
+description: 'compose 各子命令的用法与差异，以及配置变更后应执行哪条命令。'
 publishDate: 2026-10-22
 order: 2
 ---
 
-## 按「我改了什么」找命令
+## 变更对照表
 
-先在这张表里定位，再往下看细节。表里的 `site` 是应用服务、`nginx` 是入口、`postgres` 是数据层。
+修改内容与对应命令。
 
-| 我改了什么 | 跑哪条 | 要不要断服 |
+| 修改内容 | 命令 | 是否断服 |
 |---|---|---|
-| 页面、文章、配置、样式 | `docker compose up -d --build site` | 断约 10s |
-| 只改挂进 nginx 的配置文件内容 | `docker compose exec nginx nginx -t` 后 `nginx -s reload` | 不断 |
-| nginx 的 `volumes` / `ports` | `docker compose up -d nginx` | 断 |
-| 数据层 `.env` 里的密码 | `docker compose up -d postgres` | 断 |
-| Dockerfile 或依赖 | `docker compose build --no-cache site` 再 `up -d site` | 断，且慢 |
-| 只想看现在什么状态 | `docker compose ps` | — |
-| 什么都没改但行为诡异 | `docker compose up -d --force-recreate site` | 断 |
+| 页面、配置、样式 | `docker compose up -d --build site` | 约 10s |
+| nginx 配置内容 | `docker compose exec nginx nginx -t`<br>`docker compose exec nginx nginx -s reload` | 否 |
+| nginx 的 `volumes` 或 `ports` | `docker compose up -d nginx` | 是 |
+| 数据层密码 | `docker compose up -d postgres` | 是 |
+| Dockerfile 或依赖 | `docker compose build --no-cache site`<br>`docker compose up -d site` | 是 |
+| 查看当前状态 | `docker compose ps` | 否 |
+| 状态异常但无改动 | `docker compose up -d --force-recreate site` | 是 |
 
-三条容易漏的：
+`build` 仅产出镜像，不替换运行中的容器；`up -d` 才会按当前配置重建。两者合并为 `up -d --build`。
+不带服务名的 `up -d` 会启动项目内全部服务。
 
-- **`build` 不等于上线**。它只产出镜像，正在跑的容器还是旧的，必须再 `up -d`。
-  `up -d --build` 是这两步的合并写法。
-- **`restart` 不读新配置**。改过的 `environment`、`volumes`、`ports`、`command` 都不会生效。
-- **不带服务名的 `up -d` 会启动所有服务**，包括当前没在跑的数据层。
+## docker compose up
 
-## 启停与重建
+按当前配置创建并启动容器，已存在且配置未变的容器保持不动。
 
-这一节是最容易踩错的地方。先记住一句：**`restart` 只管进程，`up -d` 才管配置**。
-
-| 改的东西 | `restart` | `up -d` | `up -d --force-recreate` |
-|---|---|---|---|
-| 容器内进程挂了 | 够 | 够 | 过 |
-| 挂进去的配置文件内容 | 够 | 够 | 过 |
-| `environment` / `env_file` | 不够 | 够 | 够 |
-| `volumes` / `ports` / `command` | 不够 | 够 | 够 |
-| 重新 build 过镜像 | 不够 | 够 | 够 |
-| `restart:` 策略本身 | 不够 | 够 | 够 |
-| 什么都没改但状态诡异 | 不够 | 可能不重建 | 够 |
+**用法**
 
 ```bash
-docker compose up -d site nginx            # 最常用：按当前配置重建并启动
-docker compose up -d --build site          # 构建 + 重建，一条完成
-docker compose up -d --force-recreate site # 强制删了重建，容器 IP 会变
-docker compose stop site                   # 只停，保留容器和日志
-docker compose start site                  # 再起来，配置不变
-docker compose restart site                # 只重启进程，配置不变
-docker compose down                        # 删容器，日志一并消失
-docker compose down --remove-orphans       # 项目内清理的标准动作
+docker compose up -d [OPTIONS] [SERVICE...]
 ```
 
-- **`restart:` 策略是创建容器时写死的**。把 `unless-stopped` 改成 `always` 之后，`restart` 命令
-  不会让它生效，必须 `up -d` 重建。
-- **`up -d` 不带 `--build` 不会构建**；但如果你刚手工 `build` 过，镜像 ID 变了，它仍会重建容器。
-  所以 `build` + `up -d` 与 `up -d --build` 等价，只是前者能单独看构建日志。
-- **`--force-recreate` 不是「重启」**，是删了重建。它解决的是 compose 认为「配置没变」
-  但实际状态脏了的情况：挂载的文件被删、镜像被 retag 成同名、容器内被手工改过。
-- **`down` 会连日志一起删**。排障过程中先别 down，`stop` 就够。
-- **`down -v` 只删 named volume**，bind mount 的数据目录不受影响。想清空数据要直接删宿主目录，
-  见 [基础操作](/docs/docker/basics) 的「卷与数据目录」。
-- **只在项目根跑 compose**。在子目录里跑会生成一个新项目（目录名成了项目名），
-  容器名撞车会直接报错，不撞车也会多出一个没人管的网络。
-
-## 解析与校验
+**示例**
 
 ```bash
-docker compose config --quiet            # 唯一能真正校验整份编排的命令，含 env_file
-docker compose config --services         # 只列服务名，不解析 env_file，别拿它当校验
-docker compose config | head -40         # 看最终合并结果，排查 include 与变量替换
-docker compose ls                        # 这台机器上还有哪些项目在跑
+$ docker compose up -d site nginx
+$ docker compose up -d --build site
+$ docker compose up -d --force-recreate site
 ```
 
-- **`--services` 只输出名字**，用它「验证配置」会漏掉 `env_file` 缺失这类错误。
-  校验一律用 `--quiet`，有问题时非零退出并打印原因。
-- **`env_file` 指向不存在的文件会让整份编排解析失败**，而 `environment` 里的字面值有默认值兜底。
-  这就是为什么数据层通常要单独准备 `.env`。
-- **`include` 进来的服务属于同一个项目**，不是子项目；`docker compose ps` 一次能看到全部。
-- **项目名默认取目录名**，镜像名随后变成 `<目录名>-<服务名>`。在子目录里跑出来的项目是另一套命名空间。
-- **compose 文件里的 `$` 会被当变量插值**，要传给容器的字面量得写成 `$$`，
-  健康检查命令里最容易撞到。
+**说明**
 
-## 日志与健康检查
+- `-d` 后台运行；省略则占用前台并聚合日志。
+- 镜像 ID 变化时重建容器，即使未加 `--build`。
+- `--build` 在启动前构建，等价于先 `build` 再 `up -d`。
+- `--force-recreate` 无条件重建容器，容器 IP 随之变化，适用于配置未变但运行状态异常的情况。
+
+## docker compose stop
+
+停止容器，保留容器与日志。
+
+**用法**
 
 ```bash
-docker compose logs -f --tail=100 site        # 跟实时日志，只看最后 100 行
-docker compose logs --since 10m site nginx    # 更适合「刚发了一次请求」
-docker compose logs -t site                   # 带时间戳
-docker compose logs --no-log-prefix site      # 复制日志内容时去掉前缀
-
-docker inspect -f '{{json .State.Health}}' site | head -c 500   # FailingStreak 与最后一次输出
+docker compose stop [SERVICE...]
+docker compose start [SERVICE...]
 ```
 
-- **重建容器后日志归零**。`down` 或 `up -d` 建了新容器，上一轮的日志就没了。
-- **日志有滚动上限**（常见配置是单文件 10MB、保留 3 份），超了就丢。别指望用 `logs` 复盘几天前的事故。
-- **`--since` 比 `--tail` 更适合事后定位**：`--tail` 只取最后 N 行，而你要找的那次请求
-  可能夹在大量启动日志中间。
-- **健康检查不会触发重启**，它只是一个状态标记。`healthy` 说明探针通过，不代表服务真的可用——
-  探针通常只打一个轻量接口，覆盖不到数据库和渲染路径。
-- 探针报错时，先手工跑一遍探针命令，区分「探针写错了」和「服务真的坏了」：
+**示例**
 
 ```bash
-docker compose exec -T site node -e "fetch('http://127.0.0.1:3000/healthz').then(r=>console.log(r.status))"
+$ docker compose stop postgres
+$ docker compose start postgres
 ```
 
-- **容器时区默认是 UTC**，日志时间可能比本地早几个小时。对不上时先换算，别怀疑日志缺了。
+**说明**
 
-## 更新与回滚
+- 停止后的容器仍存在，可用 `start` 恢复，配置不变。
+- 排障期间优先使用 `stop`，`down` 会连同日志一并删除。
+
+## docker compose restart
+
+重启容器内进程。
+
+**用法**
 
 ```bash
-docker compose pull nginx         # 只有用官方镜像的服务能 pull
-docker compose up -d nginx        # 拉到新镜像后重建
-
-docker compose build site
-docker compose up -d site         # 本地构建的服务没有 pull 这一步
+docker compose restart [SERVICE...]
 ```
 
-- **本地构建的服务没有「更新镜像」的概念**，`pull` 对它无效，只能重新 `build`。
-- **回滚要自己打 tag**。compose 用 `build:` 时没有历史版本，想能回滚就在构建后加一步：
+**示例**
+
+```bash
+$ docker compose restart site
+```
+
+**说明**
+
+- 不重新读取 compose 配置；`environment`、`volumes`、`ports`、`command` 的变更不生效。
+- `restart:` 策略在容器创建时确定，修改后需 `up -d` 重建才会应用。
+- 适用于进程异常退出、需要重新拉起，而配置未变的场景。
+
+## docker compose down
+
+停止并删除容器与网络连接。
+
+**用法**
+
+```bash
+docker compose down [OPTIONS]
+```
+
+**示例**
+
+```bash
+$ docker compose down
+$ docker compose down --remove-orphans
+```
+
+**说明**
+
+- 删除容器及其日志，下次 `up` 时重新创建。
+- `-v` 仅删除 compose 定义的 named volume；bind mount 的数据目录不受影响。
+- `--remove-orphans` 同时删除 compose 文件中已移除的服务所对应的容器。
+- 在项目根目录执行。子目录执行会以目录名作为项目名，产生独立的容器与网络。
+
+## docker compose config
+
+解析并输出合并后的配置。
+
+**用法**
+
+```bash
+docker compose config [OPTIONS]
+```
+
+**示例**
+
+```bash
+$ docker compose config --quiet && echo ok
+ok
+$ docker compose config --services
+nginx
+postgres
+redis
+site
+```
+
+**说明**
+
+- `--quiet` 执行完整校验，包括 `env_file` 是否存在，失败时非零退出并输出原因。
+- `--services` 仅列出服务名，不解析 `env_file`，不能作为配置校验。
+- 输出为变量替换与 `include` 合并后的结果，`source` 等路径已转为绝对路径。
+- `env_file` 指向的文件缺失时整份配置解析失败；`environment` 中的字面值不受影响。
+- compose 文件中的 `$` 参与变量替换，需传给容器的字面量写成 `$$`。
+
+## docker compose logs
+
+输出容器日志。
+
+**用法**
+
+```bash
+docker compose logs [OPTIONS] [SERVICE...]
+```
+
+**示例**
+
+```bash
+$ docker compose logs --tail=100 site
+$ docker compose logs --since 10m site nginx
+$ docker compose logs -t site
+```
+
+**说明**
+
+- 省略服务名时输出项目内全部容器，包含数据层。
+- `--since` 按时间起点截取，`--tail` 按行数截取，排查一次近期请求时前者更合适。
+- `-t` 附加时间戳，`--no-log-prefix` 去掉服务名前缀。
+- 日志随容器删除，`down` 或 `up -d` 重建后不再保留上一轮记录。
+- 日志驱动设有滚动上限（常见为单文件 10MB、保留 3 份），超出部分丢弃。
+
+## docker compose pull
+
+拉取服务所使用的镜像。
+
+**用法**
+
+```bash
+docker compose pull [SERVICE...]
+```
+
+**示例**
+
+```bash
+$ docker compose pull nginx
+```
+
+**说明**
+
+- 仅对使用 `image:` 的服务有效；使用 `build:` 的服务由本地构建，`pull` 不更新内容。
+- 拉取后需 `up -d` 重建容器才会使用新镜像。
+
+## 镜像更新与回滚
+
+使用 `image:` 的服务更新后重建，使用 `build:` 的服务重新构建。
+
+**示例**
+
+```bash
+$ docker compose pull nginx && docker compose up -d nginx
+$ docker compose build site && docker compose up -d site
+```
+
+回滚依赖镜像 tag。构建后保留一个带日期的 tag：
 
 ```bash
 docker tag myapp-site:latest myapp-site:2026-10-22
 ```
 
-  出事时把 compose 里的 `build:` 换成 `image: myapp-site:2026-10-22`，再 `up -d`。
-- **`build` 和 `up -d` 是两个动作**：前者失败不影响正在跑的容器；`up -d --build` 是一行，
-  失败点没那么清楚。排查阶段建议分开敲。
+需要回滚时，将 compose 中的 `build:` 替换为 `image: myapp-site:2026-10-22`，再执行 `up -d`。
+
+## 健康检查
+
+compose 的 `healthcheck` 只在容器状态中记录结果，不触发重启。
+
+**用法**
+
+```bash
+docker inspect -f '{{json .State.Health}}' site
+```
+
+**示例**
+
+```bash
+$ docker inspect -f '{{.State.Health.Status}}' site
+healthy
+```
+
+**说明**
+
+- `Status` 取值 `starting`、`healthy`、`unhealthy`；`FailingStreak` 记录连续失败次数。
+- `healthy` 仅表示探针命令通过，探针通常只访问一个轻量接口，不覆盖数据库与页面渲染。
+- 探针命令在容器内执行，需使用镜像自带的工具；精简镜像可能不含 `curl` 或 `wget`。
+- 容器时区默认为 UTC，日志时间与宿主机本地时间可能相差数小时。

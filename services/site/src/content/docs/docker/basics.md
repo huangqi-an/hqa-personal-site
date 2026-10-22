@@ -1,123 +1,225 @@
 ---
 title: 'Docker 基础操作：容器、镜像、卷与网络'
-description: '查看容器状态、进容器执行命令、构建镜像，以及卷和网络的挂载与互通方式。附常用命令和容易踩空的地方。'
+description: '查看容器状态、进容器执行命令、构建镜像，以及卷和网络的挂载与互通方式。'
 publishDate: 2026-10-22
 order: 1
 ---
 
-## 怎么用这份速查
+## 约定
 
-- 文中出现的 `site` 是应用服务、`nginx` 是入口、`postgres` 和 `redis` 是数据层，换成你自己的服务名即可。
-- 命令可以整行复制，不带 `$` 前缀。
-- 带 `docker compose` 的命令都在项目根执行，也就是放着 `compose.yml` 的那个目录。
-- 这份是基础操作；编排相关看 [Compose](/docs/docker/compose)，出事之后看 [排障与清理](/docs/docker/troubleshooting)。
+文中服务名 `site`（应用）、`nginx`（入口）、`postgres`、`redis`（数据层）均为示例，替换为实际名称。
+带 `docker compose` 的命令在 `compose.yml` 所在目录执行。
 
-## 看清现在跑着什么
+## docker compose ps
 
-```bash
-docker compose ps                    # 带 health 状态，日常只看这个
-docker compose ps -a                 # 连已退出的也列出来
-docker ps --filter name=site         # 共享主机上容器多时，按名字过滤
-docker stats --no-stream             # 一次采样就退出，别开流式刷新
-docker compose images                # 每个服务用的镜像、tag、大小
-docker compose top site              # 容器里的进程树
-```
+列出项目内的容器及其状态。
 
-要判断「怎么死的」，比看日志更快的是问容器自己：
+**用法**
 
 ```bash
-docker inspect -f '{{.State.Status}} health={{.State.Health.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}}' site
+docker compose ps [OPTIONS] [SERVICE...]
+docker compose ps -a
 ```
 
-正常时输出 `running health=healthy exit=0 oom=false`。四个字段分别回答：还在跑吗、健康检查过没过、退出码是多少、是不是被 OOM 杀的。
-
-几个容易读错的地方：
-
-- **`docker ps` 不显示 health**，只有 `docker compose ps` 有。判断「活着」要用后者。
-- **`docker stats` 的 `MEM %` 分母是 `mem_limit`**，不是整机内存。显示 60% 只说明用掉了配额的六成，不代表机器快满了。
-- **退出码 137 是 SIGKILL**，最常见的原因是内存超限。用上面的 `OOMKilled` 字段确认，别猜。
-- **`--no-stream` 不是可选项**：流式 `stats` 会持续采样，在小机器上有可感知开销。
-
-## 进容器执行
+**示例**
 
 ```bash
-docker compose exec site sh                        # 大多数基础镜像都有 sh
-docker compose exec -u root site sh                # 容器以普通用户运行时，写文件才需要 root
-docker compose exec -T site sh -c 'ls -l /app'     # 脚本或管道里必须加 -T
-docker compose exec -T -w /app site pwd            # -w 指定工作目录，省掉 cd
-docker compose exec nginx nginx -t                 # 改完配置先自检
-docker compose exec nginx nginx -s reload          # 自检通过再热加载
+$ docker compose ps
+NAME    STATUS
+nginx   Up 2 hours (healthy)
+site    Up 2 hours (healthy)
 ```
 
-数据层同理，凭据从容器内的环境变量取，不要写死在命令里：
+**说明**
+
+- `(healthy)` 来自 healthcheck，`docker ps` 的 `STATUS` 列不含该信息。
+- `-a` 包含已退出容器，状态形如 `Exited (1) 3 minutes ago`。
+- 与 `docker ps` 的区别是按项目过滤，并显示健康状态。
+
+## docker stats
+
+输出容器的 CPU、内存、网络与磁盘 I/O。
+
+**用法**
+
+```bash
+docker stats --no-stream [SERVICE...]
+docker stats --format 'table {{.Name}}\t{{.MemUsage}}\t{{.MemPerc}}'
+```
+
+**示例**
+
+```bash
+$ docker stats --no-stream
+NAME    MEM USAGE / LIMIT     MEM %
+site    127.4MiB / 256MiB     49.77%
+```
+
+**说明**
+
+- `MEM %` 的分母是 compose 的 `mem_limit`，不是宿主机内存。
+- 不带 `--no-stream` 时进入持续刷新模式，占用一个前台终端。
+
+## docker inspect
+
+读取容器的完整状态，`-f` 用 Go 模板取字段。
+
+**用法**
+
+```bash
+docker inspect -f \
+  '{{.State.Status}} {{.State.ExitCode}} {{.State.OOMKilled}}' \
+  site
+docker inspect -f '{{json .State.Health}}' site
+```
+
+**示例**
+
+```bash
+$ docker inspect -f '{{.State.Status}} {{.State.ExitCode}} {{.State.OOMKilled}}' site
+running 0 false
+```
+
+**说明**
+
+- `ExitCode` 为 `137` 表示进程被 SIGKILL 终止，常见原因是内存超限，以 `OOMKilled` 字段确认。
+- `ExitCode` 为 `1` 或 `255` 表示应用自身退出，错误信息在容器日志中。
+- `Health.Status` 仅在容器定义了 healthcheck 时有值。
+- 输出是 JSON 数组，即使只查一个容器；`-f` 会展开为单个对象。
+
+## docker compose exec
+
+在运行中的容器内执行命令。
+
+**用法**
+
+```bash
+docker compose exec [OPTIONS] SERVICE COMMAND [ARGS...]
+```
+
+**示例**
+
+```bash
+$ docker compose exec site sh
+$ docker compose exec -T site sh -c 'ls -l /app'
+$ docker compose exec -T -w /app site pwd
+/app
+```
+
+**说明**
+
+- `-T` 关闭 TTY 分配；在脚本、管道或 CI 中使用时必须加，否则报 `the input device is not a TTY`。
+- `-w` 指定工作目录，`-u` 指定用户（容器以非 root 运行时写文件需要 `-u root`）。
+- 仅对运行中的容器有效；已退出的容器需先 `docker compose start`，启动中或重启循环中的容器会直接失败。
+- 精简镜像不一定包含 `bash`、`curl`、`wget`，可用 `sh` 并借助运行时自带的网络能力。
+- 容器内的文件变更在容器重建后丢失。
 
 ```bash
 docker compose exec postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"
 docker compose exec redis redis-cli
-docker compose run --rm --no-deps site node -e 'console.log(process.version)'   # 一次性容器
 ```
 
-- **不是所有镜像都有 `curl` / `wget`**。精简镜像通常只留了运行时和 `sh`，探活要用运行时自带的工具
-  （Node 用 `node -e fetch(...)`，Python 用 `python -c urllib...`）。
-- **`-T` 不加会报 `the input device is not a TTY`**，因为默认要分配终端。
-- **`exec` 只对运行中的容器有效**。已退出的要先 `docker compose start site`；
-  容器在重启循环里时 `exec` 会直接失败——这本身就是个诊断信号。
-- **在容器里改的东西随容器消失**，下次重建就归零。用来定位问题可以，别当修复手段。
-- `docker compose exec` 依赖项目上下文，必须在项目根执行；`docker exec nginx sh` 在任何目录都行。
+## docker compose run
 
-## 构建镜像
+以服务配置启动一次性容器。
+
+**用法**
 
 ```bash
-docker compose build site                    # 只构建，不上线
-docker compose build --progress=plain site   # 看每一层的完整输出，排查卡在哪
-docker compose build --no-cache site         # 最后手段，代价见下
-docker image history myapp-site --format '{{.Size}}\t{{.CreatedBy}}' | head -8
+docker compose run --rm --no-deps SERVICE COMMAND
 ```
 
-镜像名默认是 `<项目目录名>-<服务名>`，所以要先知道自己的项目叫什么，`docker compose images` 里能看到。
-
-- **`--no-cache` 是全量重来**：基础镜像要重拉（如果也被清了）+ 依赖全量重装。只在
-  「依赖明明变了却装不上」或「怀疑缓存坏了」时用。
-- **依赖层缓存的前提是 Dockerfile 里的顺序**：`COPY package.json`（或 lock 文件）必须在
-  `COPY . .` 之前。改了这两行顺序，等于永久放弃依赖缓存。
-- **构建不受 `mem_limit` 约束**，它是一次性进程而不是服务，峰值内存常是运行时的数倍。
-  小内存机器上构建前先 `docker compose stop postgres redis`，构建完再 `up -d` 恢复。
-- **lock 文件没更新会让构建失败**，报错长得像网络问题。先核对 lock 是否与 `package.json` 同步，
-  再去怀疑镜像源。
-- **镜像大小以 `docker image ls` 为准**。`docker compose images` 报的 SIZE 口径不同，会明显偏小，
-  拿它判断瘦身效果会得出错误结论。
-
-## 卷与数据目录
-
-先确认数据到底挂在哪：
+**示例**
 
 ```bash
-docker compose config | grep -E 'source:|target:|type: bind' | head -8
+$ docker compose run --rm --no-deps site node -e 'console.log(process.version)'
 ```
 
-输出里的 `source` 是 compose 按**自己所在位置**换算出的绝对路径，形如：
+**说明**
 
+- `--rm` 退出后删除容器；不加会保留，需手工清理。
+- `--no-deps` 不启动依赖服务，避免带起数据层。
+- 与 `exec` 的区别是不操作正在运行的实例。
+
+## docker compose build
+
+构建服务镜像。
+
+**用法**
+
+```bash
+docker compose build [OPTIONS] [SERVICE...]
 ```
+
+**示例**
+
+```bash
+$ docker compose build site
+$ docker compose build --progress=plain site
+$ docker compose build --no-cache site
+```
+
+**说明**
+
+- 只构建镜像，不替换运行中的容器，需再执行 `docker compose up -d`。
+- `--progress=plain` 输出每层日志，便于定位卡住的步骤。
+- `--no-cache` 跳过所有缓存层，基础镜像需重新拉取、依赖全量重装。
+- 依赖层缓存依赖 Dockerfile 顺序：清单文件（`package.json` 等）的 `COPY` 必须在 `COPY . .` 之前。
+- 构建是一次性进程，不受服务 `mem_limit` 约束，峰值内存高于运行期。
+
+## docker image history
+
+列出镜像的分层及每层大小。
+
+**用法**
+
+```bash
+docker image history IMAGE --format '{{.Size}}\t{{.CreatedBy}}'
+```
+
+**示例**
+
+```bash
+$ docker image history myapp-site --format '{{.Size}}\t{{.CreatedBy}}' | head -3
+379MB   COPY /web/node_modules ./node_modules
+5.87MB  COPY /web/dist ./dist
+0B      CMD ["node" "./dist/server/entry.mjs"]
+```
+
+**说明**
+
+- 镜像名默认为 `<项目目录名>-<服务名>`，可由 `docker compose images` 查得。
+- `docker compose images` 的 `SIZE` 与 `docker image ls` 口径不同，判断镜像体积以 `docker image ls` 为准。
+
+## 数据卷与 bind mount
+
+查看数据在宿主机的实际位置。
+
+**用法**
+
+```bash
+docker compose config | grep -E 'source:|target:|type: bind'
+docker volume ls
+docker volume inspect VOLUME
+```
+
+**示例**
+
+```bash
+$ docker compose config | grep -E 'source:|target:|type: bind'
 - type: bind
-  source: /srv/myapp/nginx/conf.d
-  target: /etc/nginx/conf.d
+  source: /srv/myapp/data/postgres
+  target: /var/lib/postgresql/data
 ```
 
-```bash
-docker volume ls                    # named volume 在这里
-docker volume inspect <卷名>
-ls -ln data                         # -n 显示数字 uid，才看得出属主是谁
-sudo du -sh data/*                  # 数据目录普通用户读不了
-```
+**说明**
 
-- **挂载路径相对 compose 文件，不是当前目录**。`../data/postgres` 写在哪一层 compose 里，
-  就相对哪一层解析，换目录执行结果一样。
-- **宿主路径不存在时 Docker 不报错**，会建一个 root 属主的空目录，然后容器起不来或者
-  「数据消失」。改数据目录前先 `ls` 一眼。
-- **数据目录属主是容器内运行用户的 uid**，不同镜像不一样，`ls -ln` 看到的是数字。
-  普通用户删不掉是正常现象，用 `sudo`，不要 `chmod 777`。
+- `source` 是 compose 按自身文件位置解析出的绝对路径，与执行命令时的目录无关。
+- bind mount 的数据不在 `docker volume` 中，`down -v` 不会删除。
+- 宿主机路径不存在时 Docker 会创建空目录，属主为 root，容器可能因此启动失败。
+- 数据目录属主为容器内运行用户的 uid，`ls -ln` 显示数字属主；普通用户需 `sudo` 操作。
 
-备份前先停库，运行中直接打包可能拿到不一致的快照：
+**备份**
 
 ```bash
 docker compose stop postgres
@@ -125,39 +227,50 @@ sudo tar -C data -czf ~/pg-$(date +%F).tar.gz postgres
 docker compose start postgres
 ```
 
-要彻底重置数据（**会清空所有数据**）：
+运行中的数据库直接打包可能得到不一致的快照，停库后再执行。
+
+**重置**
 
 ```bash
 docker compose stop postgres
 sudo rm -rf data/postgres
-docker compose up -d postgres        # 目录为空，初始化脚本会重新执行
+docker compose up -d postgres
 ```
 
-## 网络与容器发现
+目录为空时初始化脚本会重新执行，原有数据不可恢复。
+
+## docker network
+
+管理与容器的网络互通。
+
+**用法**
 
 ```bash
-docker network create web-net        # 已存在会报错，脚本里可以加 || true
-docker network create db-net
-docker network ls --filter name=net
-docker network inspect web-net --format '{{range .Containers}}{{.Name}} {{.IPv4Address}}{{"\n"}}{{end}}'
+docker network create NETWORK
+docker network ls
+docker network inspect NETWORK \
+  --format '{{range .Containers}}{{.Name}} {{.IPv4Address}}{{"\n"}}{{end}}'
 ```
 
-输出形如（地址每次重建都可能变）：
+**示例**
 
-```
+```bash
+$ docker network inspect web-net --format '{{range .Containers}}{{.Name}} {{.IPv4Address}}{{"\n"}}{{end}}'
 nginx 172.18.0.2/16
 site  172.18.0.3/16
 ```
 
+**说明**
+
+- 容器名即 DNS 名，容器间用服务名互访，IP 随重建变化。
+- `external: true` 的网络由外部创建，compose 不负责创建或删除，新机器首次启动前需存在。
+- 网络已存在时 `docker network create` 报错，脚本中可追加 `|| true`。
+- 手工 `docker network connect` 添加的网络在容器重建后丢失。
+
 ```bash
-docker compose exec nginx getent hosts site    # 验证容器名就是 DNS 名
-sudo ss -lnt | grep ':80 '                     # 宿主机谁在监听 80
+docker compose exec nginx getent hosts site
+sudo ss -lnt | grep ':80 '
 ```
 
-- **`external: true` 的网络由你事先创建**，compose 既不建也不删。新机器第一次 `up` 之前要先建好。
-- **容器之间用服务名互访**，不用记 IP；IP 会随重建变化。
-- **nginx 只在加载配置时解析一次上游域名并缓存**。上游容器重建换了 IP 之后必须
-  `nginx -s reload`，否则会一直 502。排查方法见 [排障与清理](/docs/docker/troubleshooting)。
-- **不要用 `docker network connect` 手工挂网络**，容器重建后失效，等于埋一个只在重启后才暴露的坑。
-- **端口映射是 Docker 直接写 iptables**，`ports` 写了 `80:80` 就是对全网监听，
-  真正的边界是安全组或防火墙。
+`getent hosts` 验证 DNS 解析，`ss -lnt` 查看宿主机端口占用。入口层在启动时解析上游地址并缓存，
+上游容器重建后需重载配置，见 [Compose](/docs/docker/compose) 的 `nginx -s reload`。
