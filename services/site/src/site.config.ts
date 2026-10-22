@@ -62,14 +62,14 @@ export const theme: ThemeUserConfig = {
     // year: `© 2019 - ${new Date().getFullYear()}`,
     links: [
       // 站点政策（/terms 下已有页面）
-      {
-        title: '站点政策',
-        link: '/terms',
-        pos: 2 // position set to 2 will be appended to copyright line
-      }
+      // {
+      //   title: '站点政策',
+      //   link: '/terms',
+      //   pos: 2 // position set to 2 will be appended to copyright line
+      // }
     ],
     /** Enable displaying a “Astro & Pure theme powered” link in your site’s footer. */
-    credits: true,
+    credits: false,
     /** Optional details about the social media accounts for this site. */
     social: [
       { icon: 'github', label: 'GitHub', href: 'https://github.com/huangqi-an' }
