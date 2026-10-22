@@ -1,6 +1,6 @@
 ---
 title: '事件循环：从调用栈到 Node 的六个阶段'
-publishDate: 2026-10-22
+publishDate: 2023-09-15
 description: '一次循环里到底发生了什么：调用栈、宏任务、微任务，以及 Node 的六个阶段和浏览器差在哪。'
 tags:
   - javascript
