@@ -32,11 +32,6 @@ export default defineConfig({
   // https://astro-pure.js.org/docs/setup/deployment#platform-with-base-path
   // base: '/astro-pure/',
   trailingSlash: 'never',
-  build: {
-    // 全局样式全部内联进 HTML：首屏不再等外部 CSS，
-    // 避免无样式内容先渲染、样式到达后整页重排（切换文档时表现为剧烈跳动）。
-    inlineStylesheets: 'always'
-  },
   // root: './my-project-directory',
   server: { host: true },
   // https://docs.astro.build/en/guides/prefetch/
