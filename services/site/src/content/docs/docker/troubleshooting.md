@@ -2,7 +2,7 @@
 title: 'Docker 排障与清理'
 description: '从入口到容器的排查顺序、常见错误对照表，以及磁盘占用检查与清理命令。'
 publishDate: 2026-10-22
-order: 3
+order: 4
 ---
 
 ## 排查顺序
