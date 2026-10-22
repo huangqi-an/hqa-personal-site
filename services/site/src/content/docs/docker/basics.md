@@ -139,6 +139,11 @@ $ docker compose run --rm --no-deps site node -e 'console.log(process.version)'
 
 - `--rm` 退出后删除容器；不加会保留，需手工清理。
 - `--no-deps` 不启动依赖服务，避免带起数据层。
+- `-e KEY=VALUE` 覆盖环境变量，仅对这次运行生效；`--env-from-file` 从文件读取。
+- `--name` 指定容器名，便于之后 `docker logs` 或 `docker rm`。
+- `--entrypoint` 覆盖镜像的入口，常用于临时进容器排查。
+- `-T` 关闭 TTY，在脚本或管道里执行时使用。
+- `--service-ports` 按服务配置发布端口，默认不发布。
 - 与 `exec` 的区别是不操作正在运行的实例。
 
 ## docker compose build

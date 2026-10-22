@@ -46,6 +46,10 @@ $ docker compose up -d --force-recreate site
 - 镜像 ID 变化时重建容器，即使未加 `--build`。
 - `--build` 在启动前构建，等价于先 `build` 再 `up -d`。
 - `--force-recreate` 无条件重建容器，容器 IP 随之变化，适用于配置未变但运行状态异常的情况。
+- `--wait` 等到所有服务通过 healthcheck 才返回，适合脚本里衔接下一步操作。
+- `--no-deps` 只启动指定服务，不连带其依赖。
+- `--remove-orphans` 顺带清理 compose 文件中已删除的服务留下的容器。
+- `--dry-run` 只打印将要执行的动作，不实际创建容器。
 
 ## docker compose stop
 
@@ -114,6 +118,8 @@ $ docker compose down --remove-orphans
 - 删除容器及其日志，下次 `up` 时重新创建。
 - `-v` 仅删除 compose 定义的 named volume；bind mount 的数据目录不受影响。
 - `--remove-orphans` 同时删除 compose 文件中已移除的服务所对应的容器。
+- `--rmi local` 连本项目的构建镜像一起删除；`--rmi all` 会连拉取的基础镜像也删掉。
+- `-t` 设置停止超时秒数，默认 10 秒；进程不响应 SIGTERM 时会被 SIGKILL。
 - 在项目根目录执行。子目录执行会以目录名作为项目名，产生独立的容器与网络。
 
 ## docker compose config
@@ -235,3 +241,67 @@ healthy
 - `healthy` 仅表示探针命令通过，探针通常只访问一个轻量接口，不覆盖数据库与页面渲染。
 - 探针命令在容器内执行，需使用镜像自带的工具；精简镜像可能不含 `curl` 或 `wget`。
 - 容器时区默认为 UTC，日志时间与宿主机本地时间可能相差数小时。
+
+## 全局参数
+
+以下参数写在子命令之前，对所有 compose 命令生效。
+
+**用法**
+
+```bash
+docker compose [OPTIONS] COMMAND [ARGS...]
+```
+
+**示例**
+
+```bash
+$ docker compose -f compose.yml -f compose.override.yml up -d
+$ docker compose -p myapp ps
+$ docker compose --dry-run up -d
+```
+
+**说明**
+
+| 参数 | 作用 |
+|---|---|
+| `-f, --file` | 指定 compose 文件，可重复；后指定的覆盖先指定的同名字段 |
+| `-p, --project-name` | 项目名，决定容器名、网络名、卷名的前缀 |
+| `--profile` | 启用一组服务，可重复 |
+| `--env-file` | 指定替代的环境变量文件，默认读 `.env` |
+| `--project-directory` | 改变相对路径的基准目录，默认取第一个 compose 文件所在目录 |
+| `--progress` | 构建输出格式：`auto`、`tty`、`plain`、`quiet` |
+| `--dry-run` | 只解析并打印将要执行的动作 |
+| `--ansi never` | 关闭颜色输出，便于写入日志文件 |
+
+- `-f` 多次出现时按顺序合并，后面的文件覆盖前面的同名字段；服务名不会相互覆盖，只覆盖字段。
+- 项目名默认取 compose 文件所在目录名。换目录执行会得到不同的项目，容器与网络互不相干。
+- `--env-file` 只影响 compose 解析阶段的变量替换，不会自动注入到容器里；容器内的变量仍然来自 `environment` 或 `env_file`。
+
+## profiles
+
+把可选服务从默认启动中摘出去，按需启用。
+
+**用法**
+
+```bash
+docker compose --profile NAME up -d
+COMPOSE_PROFILES=NAME docker compose up -d
+```
+
+**示例**
+
+```bash
+$ docker compose -f compose.dev.yml config --services
+$ docker compose -f compose.dev.yml --profile dev config --services
+dev
+```
+
+**说明**
+
+- 未声明 `profiles` 的服务总是启动；声明了 `profiles` 的，只在对应 profile 被启用时启动。
+- `--profile` 可重复，同时启用多组。
+- `COMPOSE_PROFILES` 环境变量等价于 `--profile`，适合写进 `.env` 或 CI 变量。
+- 一个服务可以属于多个 profile，写在列表里即可。
+- 用 `config --services` 核对启用结果：不带 `--profile` 时，全部服务都声明了 profile 的文件会输出空。
+
+
