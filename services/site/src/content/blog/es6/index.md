@@ -1,7 +1,7 @@
 ---
 title: 'ES6 特性'
 publishDate: 2023-10-26
-description: 'let 与 var 的差别、箭头函数的 this、解构默认值、class 继承、Promise 链与模块导出，按用途分组。'
+description: 'let 与 var 的差别、箭头函数的 this、Symbol 与生成器、Proxy 拦截、class 继承、Promise 与模块，按用途分组。'
 tags:
   - javascript
 language: '中文'
@@ -44,7 +44,7 @@ for (let j = 0; j < 3; j++) {
 
 `var` 只有一个 `i`，三个回调共享它，循环结束时是 3；`let` 每轮生成一个新的绑定。
 
-## 2. 函数：箭头函数、默认参数、剩余参数
+## 2. 函数：箭头函数、默认参数、剩余参数、生成器
 
 **箭头函数没有自己的 `this`**，它取定义时外层的 `this`：
 
@@ -82,7 +82,66 @@ sum(1, 2, 3)       // 6
 
 剩余参数只能放最后，`function f(...a, b)` 是语法错误。
 
-## 3. 数据：Map 与 Set
+**生成器用 `function*` 声明，`yield` 暂停，`next()` 恢复。**
+
+```js
+function* gen() {
+  const x = yield 1
+  console.log(x)        // 'a'，next 传进来的值成为上一个 yield 的结果
+  yield 2
+}
+
+const it = gen()
+it.next()               // { value: 1, done: false }
+it.next('a')            // 打印 'a'，返回 { value: 2, done: false }
+it.next()               // { value: undefined, done: true }
+```
+
+**`next()` 的参数会成为上一个 `yield` 表达式的返回值。** 第一次调用传参没意义，那时还没有 `yield` 在等。
+
+生成器自带迭代器，可以直接 `for...of` 或展开：
+
+```js
+function* range(n) {
+  for (let i = 0; i < n; i++) yield i
+}
+
+[...range(3)]           // [0, 1, 2]
+```
+
+适合惰性序列、分批产出，也用来实现自定义迭代器。
+
+## 3. 数据：Symbol、Map 与 Set
+
+**`Symbol` 是原始类型，每次创建都是唯一值。**
+
+```js
+const a = Symbol('id')
+const b = Symbol('id')
+
+a === b                 // false，描述相同也是两个值
+typeof a                // 'symbol'
+```
+
+**用来做对象键，避免和别人的字段重名。** 这种键不会被 `Object.keys`、`for...in`、`JSON.stringify` 取到：
+
+```js
+const key = Symbol('k')
+const o = { [key]: 1, normal: 2 }
+
+o[key]                  // 1
+Object.keys(o)          // ['normal']
+JSON.stringify(o)       // '{"normal":2}'
+```
+
+**`Symbol.for` 走全局注册表**，同样的字符串拿到同一个值，适合跨模块共享：
+
+```js
+Symbol.for('x') === Symbol.for('x')   // true
+Symbol('x') === Symbol('x')           // false
+```
+
+内置的 `Symbol.iterator` 就是 `for...of` 调用的那个键，最后一节会用到。
 
 **`Set` 用来去重，元素唯一。**
 
@@ -198,7 +257,46 @@ Animal.create('b').speak()   // 'b makes a sound'
 - `class` 不会提升，声明前使用报 `ReferenceError`。
 - 原型上的方法不可枚举，`for...in` 遍历不到。
 
-## 6. 异步：Promise
+## 6. 对象拦截：Proxy 与 Reflect
+
+**`Proxy` 包住一个对象，拦截读写等操作。**
+
+```js
+const target = { n: 1 }
+
+const p = new Proxy(target, {
+  get(t, key) {
+    return key in t ? t[key] : 0
+  },
+  set(t, key, value) {
+    if (key === 'n' && typeof value !== 'number') {
+      throw new TypeError('n 必须是数字')
+    }
+    t[key] = value
+    return true
+  }
+})
+
+p.n                     // 1
+p.missing               // 0，读不到时给默认值
+p.n = 'x'               // TypeError: n 必须是数字
+```
+
+**`Reflect` 是这些操作的函数版**，行为与直接操作一致，配合 Proxy 用可以少写判断：
+
+```js
+const p = new Proxy({}, {
+  get(t, key, receiver) {
+    return Reflect.get(t, key, receiver)
+  }
+})
+```
+
+常见用途是默认值、参数校验、访问日志。Vue 3 的响应式就是这么实现的。
+
+**注意：** `Proxy` 只能拦住经过代理对象的操作，直接改 `target` 不受影响。
+
+## 7. 异步：Promise
 
 Promise 有三个状态：`pending`、`fulfilled`、`rejected`，一旦确定不再改变。
 
@@ -221,7 +319,7 @@ Promise.resolve(1)
 | `Promise.allSettled` | 等全部结束，不管成功失败，返回每个的结果 |
 | `Promise.race` | 第一个结束的（成功或失败）决定结果 |
 
-## 7. 模块：import 与 export
+## 8. 模块：import 与 export
 
 ```js
 // math.js
@@ -253,7 +351,7 @@ console.log(count)   // 1
 
 模块顶层没有 `this`（是 `undefined`），也没有变量提升到全局。
 
-## 8. 遍历：for...of 与迭代器
+## 9. 遍历：for...of 与迭代器
 
 `for...of` 走的是迭代器协议，取的是**值**；`for...in` 取的是**键**，还会带上原型链上的可枚举属性。
 
