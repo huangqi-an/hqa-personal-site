@@ -1,7 +1,7 @@
 ---
 title: '数组方法'
 publishDate: 2023-10-12
-description: 'push 返回新长度，splice 返回被删的元素，sort 返回原数组本身：按改不改原数组分两类，写明返回值、复杂度与常见误用。'
+description: '改变原数组的方法一共 9 个，其余的都返回新数组或非数组的计算结果.'
 tags:
   - javascript
 language: '中文'
