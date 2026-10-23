@@ -1,7 +1,7 @@
 ---
 title: 'ES6 特性'
 publishDate: 2023-10-26
-description: 'let 与 var 的差别、箭头函数的 this、Symbol 与生成器、Proxy 拦截、class 继承、Promise 与模块，按用途分组。'
+description: 'ES6 也叫 ES2015，是 JavaScript 历史上变化最大的一次语言升级。它补齐了大型工程所需的多个语言能力。'
 tags:
   - javascript
 language: '中文'
