@@ -1,7 +1,7 @@
 ---
 title: '事件循环'
 publishDate: 2023-09-15
-description: '从调用栈到 Node 的六个阶段：宏任务与微任务怎么排队，一轮循环里谁先谁后。'
+description: '事件循环是程序持续监听并处理事件的机制，尤其在 JavaScript 中，它让单线程语言能实现非阻塞异步操作。'
 tags:
   - javascript
   - node
