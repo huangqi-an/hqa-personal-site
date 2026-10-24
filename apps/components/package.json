@@ -1,0 +1,13 @@
+{
+  "name": "hqa-components",
+  "version": "0.1.0",
+  "private": true,
+  "description": "HQA 组件库：Web Components / Vue 3 / React 三套组件，各配 Storybook，静态构建经 nginx 挂到 /components/",
+  "scripts": {
+    "dev:web": "pnpm --filter @huangqi-an/components-web dev",
+    "dev:vue": "pnpm --filter @huangqi-an/components-vue dev",
+    "dev:react": "pnpm --filter @huangqi-an/components-react dev",
+    "build": "pnpm -r run build-storybook && mkdir -p dist && cp shared/tokens.css dist/tokens.css && cp landing/index.html dist/index.html",
+    "build-storybook": "pnpm -r run build-storybook"
+  }
+}

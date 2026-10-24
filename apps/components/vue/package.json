@@ -1,0 +1,17 @@
+{
+  "name": "@huangqi-an/components-vue",
+  "version": "0.1.0",
+  "private": true,
+  "description": "HQA 组件库 · Vue 3 实现：Composition API + defineModel",
+  "scripts": {
+    "dev": "storybook dev -p 6006",
+    "build-storybook": "storybook build --output-dir ../dist/vue"
+  },
+  "devDependencies": {
+    "@storybook/addon-docs": "^10.6.3",
+    "@storybook/vue3-vite": "^10.6.3",
+    "@vitejs/plugin-vue": "^6.0.10",
+    "storybook": "^10.6.3",
+    "vue": "^3.5.44"
+  }
+}

@@ -1,0 +1,10 @@
+# Storybook 一个实例只能挂一个框架，所以 Web Components / Vue / React
+# 各自是一个包、各配一套 Storybook；构建产物统一收敛到 ../dist/<名>/。
+packages:
+  - web
+  - vue
+  - react
+# 放行 esbuild 的安装脚本（Vite 依赖它装平台二进制）；
+# pnpm 默认拦截依赖的构建脚本，需在此显式放行
+allowBuilds:
+  esbuild: true
