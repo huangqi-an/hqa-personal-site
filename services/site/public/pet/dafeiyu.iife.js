@@ -67,7 +67,8 @@ var Dafeiyu = (() => {
     zIndex: 9999,
     whisperIntervalSec: 120,
     enabledOnMobile: false,
-    pageContext: true
+    pageContext: true,
+    voice: false
   };
   var BUILTIN_LINES = [
     "\u5495\u565C\u5495\u565C\uFF5E",
@@ -518,6 +519,7 @@ var Dafeiyu = (() => {
       item("\u{1F35A} \u5582\u98DF", handlers.onFeed);
       this.sleepBtn = item("\u{1F634} \u7761\u89C9", handlers.onToggleSleep);
       this.chatBtn = item("\u{1F4AC} \u804A\u5929", handlers.onChat);
+      this.voiceBtn = item("\u{1F50A} \u8BED\u97F3\uFF1A\u5F00", handlers.onToggleVoice);
       item("\u{1F3AF} \u56DE\u539F\u4F4D", handlers.onResetPos);
       shadow.appendChild(this.root);
       this.onDocDown = (e) => {
@@ -541,11 +543,13 @@ var Dafeiyu = (() => {
      * @param levelName 档位名
      * @param sleeping  当前是否睡着（决定「睡觉/叫醒」文案）
      * @param canChat   是否有聊天能力（无则隐藏聊天项）
+     * @param voiceOn   语音朗读开关状态（决定「语音」项文案）
      */
-    open(name, affinity, levelName, sleeping, canChat) {
+    open(name, affinity, levelName, sleeping, canChat, voiceOn) {
       this.head.textContent = `${name} \xB7 \u597D\u611F ${affinity}\uFF08${levelName}\uFF09`;
       this.sleepBtn.textContent = sleeping ? "\u23F0 \u53EB\u9192" : "\u{1F634} \u7761\u89C9";
       this.chatBtn.style.display = canChat ? "" : "none";
+      this.voiceBtn.textContent = voiceOn ? "\u{1F50A} \u8BED\u97F3\uFF1A\u5F00" : "\u{1F507} \u8BED\u97F3\uFF1A\u5173";
       this.openState = true;
       this.root.classList.add("dfy-open");
       this.root.style.marginLeft = "0";
@@ -793,6 +797,70 @@ var Dafeiyu = (() => {
     }
   };
 
+  // src/speech.ts
+  var VOICE_KEY = "dafeiyu:voice";
+  var Speech = class {
+    constructor(enabled) {
+      var _a, _b;
+      this.synth = typeof speechSynthesis !== "undefined" ? speechSynthesis : null;
+      let saved = null;
+      try {
+        const raw = localStorage.getItem(VOICE_KEY);
+        if (raw === "1" || raw === "0") saved = raw === "1";
+      } catch {
+      }
+      this.on = saved != null ? saved : enabled;
+      (_b = (_a = this.synth) == null ? void 0 : _a.addEventListener) == null ? void 0 : _b.call(_a, "voiceschanged", () => this.pickVoice());
+    }
+    get enabled() {
+      return this.on;
+    }
+    setEnabled(v) {
+      this.on = v;
+      if (!v) this.cancel();
+      try {
+        localStorage.setItem(VOICE_KEY, v ? "1" : "0");
+      } catch {
+      }
+    }
+    pickVoice() {
+      if (!this.synth) return null;
+      const voices = this.synth.getVoices();
+      return voices.find((v) => v.lang === "zh-CN") || voices.find((v) => {
+        var _a;
+        return (_a = v.lang) == null ? void 0 : _a.startsWith("zh");
+      }) || null;
+    }
+    /** 朗读一段文本；关闭状态/无语音环境/文本为空都静默跳过 */
+    speak(text) {
+      if (!this.on || !this.synth) return;
+      const clean = text.replace(/\s+/g, " ").trim().slice(0, 200);
+      if (!clean) return;
+      try {
+        this.synth.cancel();
+        const u = new SpeechSynthesisUtterance(clean);
+        const v = this.pickVoice();
+        if (v) {
+          u.voice = v;
+          u.lang = v.lang;
+        } else {
+          u.lang = "zh-CN";
+        }
+        u.rate = 1.05;
+        u.pitch = 1.15;
+        this.synth.speak(u);
+      } catch {
+      }
+    }
+    cancel() {
+      var _a;
+      try {
+        (_a = this.synth) == null ? void 0 : _a.cancel();
+      } catch {
+      }
+    }
+  };
+
   // src/pet.ts
   var MOBILE_QUERY = "(max-width: 767px)";
   var POS_KEY = "dafeiyu:pos";
@@ -874,6 +942,7 @@ var Dafeiyu = (() => {
       this.restorePosition();
       this.player = new Player(this.video, this.opts.assetBase);
       this.bubble = new Bubble(this.shadow);
+      this.speech = new Speech(this.opts.voice);
       this.detachDrag = attachDrag(this.video, {
         onGrab: (px, py) => {
           this.grabOffX = px - this.x;
@@ -900,7 +969,8 @@ var Dafeiyu = (() => {
         onFeed: () => this.feed(),
         onToggleSleep: () => this.toggleSleep(),
         onResetPos: () => this.resetPos(),
-        onChat: () => this.chatOpen ? this.closeChat() : this.openChat()
+        onChat: () => this.chatOpen ? this.closeChat() : this.openChat(),
+        onToggleVoice: () => this.setVoice(!this.speech.enabled)
       });
       this.video.addEventListener("contextmenu", (e) => {
         var _a2;
@@ -1178,6 +1248,7 @@ var Dafeiyu = (() => {
       void this.player.play("talk-screen", true);
       const ny = (this.y + this.hPlaceholder() / 2) / window.innerHeight;
       this.bubble.say(line, BUBBLE_MS, ny < 0.28, image);
+      this.speech.speak(line);
       this.setT(() => {
         if (this.state === "talk") {
           this.state = "idle";
@@ -1372,6 +1443,7 @@ var Dafeiyu = (() => {
           this.saveHistory();
           panel.setSending(false);
           this.chatAbort = null;
+          this.speech.speak(acc);
         },
         onError: (msg) => {
           handle.error(msg);
@@ -1404,7 +1476,18 @@ var Dafeiyu = (() => {
       var _a;
       if (this.dead || !this.menu) return;
       const n = loadAffinity();
-      this.menu.open(this.petName, n, levelOf(n).name, this.state === "sleep", !!((_a = this.endpoints) == null ? void 0 : _a.chat));
+      this.menu.open(
+        this.petName,
+        n,
+        levelOf(n).name,
+        this.state === "sleep",
+        !!((_a = this.endpoints) == null ? void 0 : _a.chat),
+        this.speech.enabled
+      );
+    }
+    /** 语音朗读开关（右键菜单入口）；关闭时立刻停掉正在读的 */
+    setVoice(on) {
+      this.speech.setEnabled(on);
     }
     get petName() {
       var _a;
@@ -1515,6 +1598,7 @@ var Dafeiyu = (() => {
       void this.player.play("talk-screen", true);
       const ny = (this.y + this.hPlaceholder() / 2) / window.innerHeight;
       this.bubble.say(line, BUBBLE_MS, ny < 0.28);
+      this.speech.speak(line);
       this.setT(() => {
         if (this.state === "talk") {
           this.state = "idle";
@@ -1541,6 +1625,7 @@ var Dafeiyu = (() => {
       (_b = this.chatAbort) == null ? void 0 : _b.abort();
       this.chatAbort = null;
       (_c = this.menu) == null ? void 0 : _c.destroy();
+      this.speech.cancel();
       (_d = this.detachDrag) == null ? void 0 : _d.call(this);
       document.removeEventListener("pointerdown", this.onActivity, { capture: true });
       document.removeEventListener("keydown", this.onActivity, { capture: true });
@@ -1576,6 +1661,7 @@ var Dafeiyu = (() => {
       say: (text) => ensure().forceSay(text),
       play: (name) => ensure().forcePlay(name),
       feed: () => ensure().feed(),
+      setVoice: (on) => ensure().setVoice(on),
       openChat: () => ensure().openChat(),
       closeChat: () => ensure().closeChat()
     };

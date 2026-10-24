@@ -19,13 +19,15 @@ const whisperIntervalSec = 180
 // 宠物 AI 后端：本站 API 路由（密钥在服务端，见 src/pages/api/pet/）。
 // 未配 key 时这两个路由自动降级，宠物退回本地台词池，不影响使用
 const endpoints = { whisper: '/api/pet/whisper', chat: '/api/pet/chat' }
+// 语音朗读默认开：访客可在右键菜单里关（偏好会记住）
+const voice = true
 ---
 
 {/* is:inline：直接引用 public/ 下的产物文件，不进 Astro 打包管线 */}
 <script is:inline src='/pet/dafeiyu.iife.js'></script>
-<script is:inline define:vars={{ assetBase, size, startPos, lines, whisperIntervalSec, endpoints }}>
+<script is:inline define:vars={{ assetBase, size, startPos, lines, whisperIntervalSec, endpoints, voice }}>
   ;(() => {
     if (window.Dafeiyu)
-      window.Dafeiyu.mount({ assetBase, size, position: startPos, lines, whisperIntervalSec, endpoints })
+      window.Dafeiyu.mount({ assetBase, size, position: startPos, lines, whisperIntervalSec, endpoints, voice })
   })()
 </script>
