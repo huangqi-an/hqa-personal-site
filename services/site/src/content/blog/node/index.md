@@ -1,7 +1,7 @@
 ---
 title: 'Node.js'
 publishDate: 2023-12-21
-description: 'Node 把 JS 从浏览器里拿出来，交给 V8 执行、libuv 处理 I/O；模块、异步、进程三条线决定了它怎么跑。'
+description: 'Node.js 是一个开源、跨平台的 JavaScript 运行时环境，让 JavaScript 代码能在浏览器之外的服务器端运行。'
 tags:
   - node
   - javascript
