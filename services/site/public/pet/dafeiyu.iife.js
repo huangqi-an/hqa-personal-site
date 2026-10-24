@@ -903,8 +903,10 @@ var Dafeiyu = (() => {
         onChat: () => this.chatOpen ? this.closeChat() : this.openChat()
       });
       this.video.addEventListener("contextmenu", (e) => {
+        var _a2;
         e.preventDefault();
-        this.openMenu();
+        if ((_a2 = this.menu) == null ? void 0 : _a2.isOpen) this.menu.close();
+        else this.openMenu();
       });
       this.video.addEventListener("pointerdown", () => {
         this.cancelLongPress();
