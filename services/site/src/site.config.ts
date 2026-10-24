@@ -51,6 +51,9 @@ export const theme: ThemeUserConfig = {
       { title: '博客', link: '/blog' },
       { title: '文档', link: '/docs' },
       { title: '项目', link: '/projects' },
+      // 组件库：nginx 静态托管（apps/components 构建产物），不在 Astro 路由内；
+      // 带尾斜杠省一次 301 跳转
+      { title: '组件库', link: '/components/' },
       { title: '关于', link: '/about' }
     ]
   },
