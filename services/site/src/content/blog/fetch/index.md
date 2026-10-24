@@ -1,7 +1,7 @@
 ---
 title: 'fetch'
 publishDate: 2023-12-08
-description: 'fetch 只在网络层失败时 reject，404 也照常 resolve；body 只能读一次，超时靠 AbortSignal。'
+description: 'Fetch 是用于 Web 数据交互的 JavaScript 接口，作为 XMLHttpRequest 的现代替代方案，通过抽象 HTTP 接口实现高效通信，支持 Request、Response、Headers 等对象的通用定义，适用于 Service Worker、Cache API 等网络请求场景'
 tags:
   - javascript
   - http
