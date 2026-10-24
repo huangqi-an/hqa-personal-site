@@ -53,7 +53,11 @@ require('lodash')        // node_modules/lodash/package.json 的 main
 | 后缀是 `.js`，最近的 `package.json` 里 `"type": "module"` | ESM |
 | 后缀是 `.js`，没有 `type` 或 `"type": "commonjs"` | CommonJS |
 
+**`require` 是同步阻塞的。** 加载大模块时会卡住当前线程；ESM 的 `import` 在加载阶段是异步的。
+
 `package.json` 的 `exports` 字段会覆盖 `main`，还能按条件导出不同入口（`import` / `require` / `browser`），这是双包（dual package）的实现方式，也容易出「同一个包被加载了两份」的问题。
+
+ESM 里可以 `import` CJS 模块，拿到的是 `module.exports` 作为默认导出；CJS 里不能直接 `require` 纯 ESM 包，要用动态 `import()`。较新的 Node 版本开始支持 `require(esm)`，生态里还不普遍。
 
 ## 3. 模块加载：缓存、快照、循环依赖
 
@@ -139,7 +143,7 @@ exports.b = 2
 | :--- | :--- |
 | `global` | 全局对象，等价于浏览器的 `window` |
 | `process` | 进程信息与控制：`argv`、`env`、`cwd()`、`exit()` |
-| `Buffer` | 二进制数据，继承自 `Uint8Array` |
+| `Buffer` | 二进制字节序列，继承自 `Uint8Array`；`toString()` 只是按编码解码，编码不对就是乱码 |
 | `__dirname` / `__filename` | 当前文件所在目录 / 完整路径，**只在 CJS 里存在** |
 
 ESM 里没有 `__dirname`，用 `import.meta.url` 换算：
@@ -273,15 +277,3 @@ process.on('SIGTERM', () => {
 `SIGTERM` 是 `kill` 和容器编排系统默认发的信号，收到后应该停止接受新连接、等已有请求处理完。
 
 **未捕获的异常**默认让进程以 1 退出；未处理的 Promise rejection 在 Node 15 之后也是同样的行为，可以用 `process.on('unhandledRejection')` 接管，但只建议用来记录日志，不建议继续运行。
-
-## 9. 几个常被误解的点
-
-**「Node 是单线程的。」** JS 执行是单线程，但 libuv 有线程池，`worker_threads` 还能开真正的线程。准确说法是「JS 执行是单线程的」。
-
-**「`require` 是异步的。」** 同步阻塞。加载大模块时会卡住当前线程，ESM 的 `import` 在加载阶段是异步的。
-
-**「CJS 和 ESM 可以随便混用。」** ESM 里可以 `import` CJS 模块（拿到 `module.exports` 作为默认导出），CJS 里不能直接 `require` 纯 ESM 包，要用动态 `import()`。较新的 Node 版本开始支持 `require(esm)`，但生态里还不普遍。
-
-**「`Buffer` 就是字符串。」** `Buffer` 是二进制字节序列，`toString()` 只是按某种编码解码，编码不对就是乱码。
-
-**「`process.exit()` 会等清理完。」** 不会，它立即终止，回调、日志、文件写入都可能被截断。
