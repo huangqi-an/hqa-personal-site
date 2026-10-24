@@ -1,7 +1,7 @@
 ---
 title: 'Git 常用操作'
 publishDate: 2023-11-09
-description: '撤销改动、合并冲突、reflog 找回、push 被拒：按场景查命令，附实际输出。'
+description: 'Git 常用命令按操作场景分为配置初始化、提交同步、分支管理三大类，核心命令包括 git init、git add、git commit、git push、git pull、git branch 等。'
 tags:
   - git
 language: '中文'
