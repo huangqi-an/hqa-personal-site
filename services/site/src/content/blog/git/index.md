@@ -1,7 +1,7 @@
 ---
 title: 'Git 常用操作'
 publishDate: 2023-11-09
-description: 'Git 常用命令按操作场景分为配置初始化、提交同步、分支管理三大类，核心命令包括 git init、git add、git commit、git push、git pull、git branch 等。'
+description: '配置初始化、提交与撤销、分支与合并、reflog 找回、push 被拒：覆盖 git init、config、add、commit、reset、reflog 等常用命令。'
 tags:
   - git
 language: '中文'
