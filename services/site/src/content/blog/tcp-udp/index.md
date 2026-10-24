@@ -1,7 +1,7 @@
 ---
 title: 'TCP 与 UDP'
 publishDate: 2023-11-23
-description: '三次握手、四次挥手、重传与拥塞控制，再逐项对比 UDP：连接、边界、流量控制、包头开销与选型。'
+description: 'TCP 是面向连接的可靠传输，UDP 是无连接的尽力交付。'
 tags:
   - network
 language: '中文'
