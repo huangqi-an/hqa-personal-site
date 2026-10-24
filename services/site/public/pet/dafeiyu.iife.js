@@ -520,6 +520,7 @@ var Dafeiyu = (() => {
       this.sleepBtn = item("\u{1F634} \u7761\u89C9", handlers.onToggleSleep);
       this.chatBtn = item("\u{1F4AC} \u804A\u5929", handlers.onChat);
       this.voiceBtn = item("\u{1F50A} \u8BED\u97F3\uFF1A\u5F00", handlers.onToggleVoice);
+      this.voiceCycleBtn = item("\u{1F3A4} \u97F3\u8272", handlers.onCycleVoice);
       item("\u{1F3AF} \u56DE\u539F\u4F4D", handlers.onResetPos);
       shadow.appendChild(this.root);
       this.onDocDown = (e) => {
@@ -538,18 +539,20 @@ var Dafeiyu = (() => {
       return this.openState;
     }
     /**
-     * @param name      宠物名（头部展示）
-     * @param affinity  好感数值
-     * @param levelName 档位名
-     * @param sleeping  当前是否睡着（决定「睡觉/叫醒」文案）
-     * @param canChat   是否有聊天能力（无则隐藏聊天项）
-     * @param voiceOn   语音朗读开关状态（决定「语音」项文案）
+     * @param name        宠物名（头部展示）
+     * @param affinity    好感数值
+     * @param levelName   档位名
+     * @param sleeping    当前是否睡着（决定「睡觉/叫醒」文案）
+     * @param canChat     是否有聊天能力（无则隐藏聊天项）
+     * @param voiceOn     语音朗读开关状态（决定「语音」项文案）
+     * @param voiceLabel  当前音色名（「音色」项展示；空串隐藏该项）
      */
-    open(name, affinity, levelName, sleeping, canChat, voiceOn) {
+    open(name, affinity, levelName, sleeping, canChat, voiceOn, voiceLabel) {
       this.head.textContent = `${name} \xB7 \u597D\u611F ${affinity}\uFF08${levelName}\uFF09`;
       this.sleepBtn.textContent = sleeping ? "\u23F0 \u53EB\u9192" : "\u{1F634} \u7761\u89C9";
       this.chatBtn.style.display = canChat ? "" : "none";
       this.voiceBtn.textContent = voiceOn ? "\u{1F50A} \u8BED\u97F3\uFF1A\u5F00" : "\u{1F507} \u8BED\u97F3\uFF1A\u5173";
+      this.voiceCycleBtn.textContent = `\u{1F3A4} \u97F3\u8272\uFF1A${voiceLabel || "\u65E0"}`;
       this.openState = true;
       this.root.classList.add("dfy-open");
       this.root.style.marginLeft = "0";
@@ -799,6 +802,7 @@ var Dafeiyu = (() => {
 
   // src/speech.ts
   var VOICE_KEY = "dafeiyu:voice";
+  var VOICE_NAME_KEY = "dafeiyu:voice-name";
   var Speech = class {
     constructor(enabled) {
       var _a, _b;
@@ -810,7 +814,7 @@ var Dafeiyu = (() => {
       } catch {
       }
       this.on = saved != null ? saved : enabled;
-      (_b = (_a = this.synth) == null ? void 0 : _a.addEventListener) == null ? void 0 : _b.call(_a, "voiceschanged", () => this.pickVoice());
+      (_b = (_a = this.synth) == null ? void 0 : _a.addEventListener) == null ? void 0 : _b.call(_a, "voiceschanged", () => this.currentVoice());
     }
     get enabled() {
       return this.on;
@@ -823,13 +827,47 @@ var Dafeiyu = (() => {
       } catch {
       }
     }
-    pickVoice() {
-      if (!this.synth) return null;
-      const voices = this.synth.getVoices();
-      return voices.find((v) => v.lang === "zh-CN") || voices.find((v) => {
+    /** 本机全部中文语音（Windows 一般 2-3 个，macOS 1-2 个，Linux 可能没有） */
+    listZhVoices() {
+      if (!this.synth) return [];
+      return this.synth.getVoices().filter((v) => {
         var _a;
-        return (_a = v.lang) == null ? void 0 : _a.startsWith("zh");
-      }) || null;
+        return (_a = v.lang) == null ? void 0 : _a.toLowerCase().startsWith("zh");
+      });
+    }
+    /** 当前生效的语音：记住的偏好名 → 第一个 zh-CN → 列表第一个 */
+    currentVoice() {
+      const list = this.listZhVoices();
+      if (!list.length) return null;
+      let savedName = null;
+      try {
+        savedName = localStorage.getItem(VOICE_NAME_KEY);
+      } catch {
+      }
+      if (savedName) {
+        const hit = list.find((v) => v.name === savedName);
+        if (hit) return hit;
+      }
+      return list.find((v) => v.lang === "zh-CN") || list[0];
+    }
+    /** 切到下一个中文语音并持久化偏好；无语音可切返回 null */
+    cycleVoice() {
+      const list = this.listZhVoices();
+      if (!list.length) return null;
+      const cur = this.currentVoice();
+      const idx = cur ? list.indexOf(cur) : -1;
+      const next = list[(idx + 1) % list.length];
+      try {
+        localStorage.setItem(VOICE_NAME_KEY, next.name);
+      } catch {
+      }
+      return next;
+    }
+    /** 菜单展示用：当前音色名（截断），无中文语音时显示「无」 */
+    voiceLabel() {
+      const v = this.currentVoice();
+      if (!v) return "\u65E0";
+      return v.name.length > 12 ? `${v.name.slice(0, 12)}\u2026` : v.name;
     }
     /** 朗读一段文本；关闭状态/无语音环境/文本为空都静默跳过 */
     speak(text) {
@@ -839,7 +877,7 @@ var Dafeiyu = (() => {
       try {
         this.synth.cancel();
         const u = new SpeechSynthesisUtterance(clean);
-        const v = this.pickVoice();
+        const v = this.currentVoice();
         if (v) {
           u.voice = v;
           u.lang = v.lang;
@@ -970,7 +1008,8 @@ var Dafeiyu = (() => {
         onToggleSleep: () => this.toggleSleep(),
         onResetPos: () => this.resetPos(),
         onChat: () => this.chatOpen ? this.closeChat() : this.openChat(),
-        onToggleVoice: () => this.setVoice(!this.speech.enabled)
+        onToggleVoice: () => this.setVoice(!this.speech.enabled),
+        onCycleVoice: () => this.cycleVoice()
       });
       this.video.addEventListener("contextmenu", (e) => {
         var _a2;
@@ -1482,12 +1521,18 @@ var Dafeiyu = (() => {
         levelOf(n).name,
         this.state === "sleep",
         !!((_a = this.endpoints) == null ? void 0 : _a.chat),
-        this.speech.enabled
+        this.speech.enabled,
+        this.speech.voiceLabel()
       );
     }
     /** 语音朗读开关（右键菜单入口）；关闭时立刻停掉正在读的 */
     setVoice(on) {
       this.speech.setEnabled(on);
+    }
+    /** 切换到下一个本机中文音色并试听一句；无语音可切时静默 */
+    cycleVoice() {
+      const v = this.speech.cycleVoice();
+      if (v) this.speech.speak("\u5C31\u8FD9\u4E2A\u58F0\u97F3\u5566\uFF5E");
     }
     get petName() {
       var _a;
