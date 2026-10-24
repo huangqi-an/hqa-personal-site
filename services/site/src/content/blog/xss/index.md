@@ -1,7 +1,7 @@
 ---
 title: 'XSS'
 publishDate: 2024-01-04
-description: 'XSS 的本质是用户输入被当成代码执行；防不住的地方，几乎都是输出时用错了上下文。'
+description: 'XSS 的本质是不可信的数据被浏览器当成了代码执行。'
 tags:
   - security
   - web
