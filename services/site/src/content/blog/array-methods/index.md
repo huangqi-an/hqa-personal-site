@@ -1,7 +1,7 @@
 ---
 title: '数组方法'
 publishDate: 2023-10-12
-description: '改变原数组的方法一共 8 个，其余的都返回新数组或非数组的计算结果。'
+description: '数组方法按是否修改原数组分成两类：改原数组的副作用各异，不改的一律返回新值。'
 tags:
   - javascript
 language: '中文'
