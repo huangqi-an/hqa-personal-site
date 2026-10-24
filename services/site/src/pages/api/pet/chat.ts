@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro'
-import { clientIp, deepseek, hasKey, rateAllow, systemPrompt } from './_lib'
+import { clientIp, deepseek, hasKey, isMemeKey, rateAllow, systemPrompt } from './_lib'
 
 // 聊天：POST { messages:[{role,content}...] } → SSE 流式回复。
 // 协议与 dafeiyu 包约定一致：data:{"d":增量} | {"e":错误} | [DONE]
@@ -71,12 +71,43 @@ export const POST: APIRoute = async ({ request }) => {
     return errJson(502, '上游模型没响应，稍后再试')
   }
 
-  // 把上游 OpenAI 风格的 SSE 改写成 {d}/{e} 协议再下发
+  // 把上游 OpenAI 风格 SSE 改写成 {d}/{i}/{e} 协议下发
   const upstreamBody = upstream.body
   const encoder = new TextEncoder()
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      const send = (obj: unknown) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`))
+      const send = (obj: unknown) =>
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`))
+      // 开头标记 [img:键名]：模型选表情包的方式。缓冲回复开头直到能判定——
+      // 不是 [ 开头 → 无标记直接透传；凑齐 ] → 提取键名发 {"i":…}（无效则按正文吐回）；超长 → 证伪
+      let head = ''
+      let markerDone = false
+      const feed = (chunk: string): void => {
+        if (!chunk) return
+        if (markerDone) {
+          send({ d: chunk })
+          return
+        }
+        head += chunk
+        if (!head.startsWith('[')) {
+          markerDone = true
+          send({ d: head })
+          return
+        }
+        const close = head.indexOf(']')
+        if (close > 0) {
+          markerDone = true
+          const m = /^\[img:([a-z0-9-]{1,40})\]/.exec(head)
+          if (m && isMemeKey(m[1])) send({ i: m[1] })
+          else send({ d: head })
+          return
+        }
+        if (head.length > 48) {
+          markerDone = true
+          send({ d: head })
+        }
+        // 其余情况继续缓冲，不透传
+      }
       const reader = upstreamBody.getReader()
       const decoder = new TextDecoder()
       let buf = ''
@@ -97,7 +128,7 @@ export const POST: APIRoute = async ({ request }) => {
               try {
                 const evt = JSON.parse(payload)
                 const delta = evt?.choices?.[0]?.delta?.content
-                if (typeof delta === 'string' && delta) send({ d: delta })
+                if (typeof delta === 'string' && delta) feed(delta)
               } catch {
                 /* 忽略解析不了的行（如 keep-alive 注释） */
               }
@@ -106,6 +137,8 @@ export const POST: APIRoute = async ({ request }) => {
         }
         if (!doneSent) {
           doneSent = true
+          // 流结束还在缓冲开头（没凑齐标记）→ 按正文吐回
+          if (!markerDone && head) send({ d: head })
           controller.enqueue(encoder.encode('data: [DONE]\n\n'))
         }
         controller.close()

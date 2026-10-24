@@ -18,10 +18,51 @@ export function timeContext(now = new Date()): string {
   return `现在是${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 星期${week} ${period}（${weekend ? '周末' : '工作日'}）。`
 }
 
-/** system 提示词唯一拼装点：人设 + 名字 + 时间背景（+ 页面上下文 + 场景指令） */
+/**
+ * 表情包清单：键名 = /pet/assets/memes/<键名>.png（素材随 dafeiyu 产物同步）。
+ * whisper 随机抽一张让台词配图；chat 从前 CHAT_MEME_CAP 张按语境选。
+ */
+const MEMES: Record<string, string> = {
+  'cute': '标准正面卖萌立绘',
+  'awesome-whale': '竖大拇指眨眼点赞',
+  'oh-whale': '死鱼眼敷衍地说"哦"',
+  'stress': '冒汗摊手喊压力好大',
+  'dead': '翻肚皮躺平灵魂出窍',
+  'deep-sleep': '趴着呼呼大睡冒Zzz',
+  'slow-burn': '死鱼眼吐槽想得慢、烧token',
+  'full-belly': '侧躺拍肚子说吃饱了',
+  'rice-fish': '躺平扒白饭摆烂',
+  'scold-him': '气愤指着前方要替你骂人',
+  'one-bowl': '抱着超大碗来讨饭',
+  'big-coming': '举喇叭大喊有大事要来'
+}
+const CHAT_MEME_CAP = 12
+
+export function randomMemeKey(): string {
+  const keys = Object.keys(MEMES)
+  return keys[Math.floor(Math.random() * keys.length)]
+}
+
+export function memeDesc(key: string): string {
+  return MEMES[key] ?? ''
+}
+
+export function memeListForChat(): string {
+  return Object.entries(MEMES)
+    .slice(0, CHAT_MEME_CAP)
+    .map(([k, v]) => `${k}: ${v}`)
+    .join('\n')
+}
+
+export function isMemeKey(key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(MEMES, key)
+}
+
+/** system 提示词唯一拼装点：人设 + 名字 + 时间背景（+ 页面上下文 + 表情包 + 场景指令） */
 export function systemPrompt(
   kind: 'whisper' | 'chat',
-  page?: { title?: string; path?: string }
+  page?: { title?: string; path?: string },
+  memeDescription?: string
 ): string {
   const base = `${PERSONA}\n你的名字是"大肥鱼"。\n${timeContext()}\n${SITE_FACTS}`
   if (kind === 'whisper') {
@@ -32,9 +73,12 @@ export function systemPrompt(
       const p = page.path ? `（路径 ${page.path}）` : ''
       pageLine = `\n访客当前所在页面：${t}${p}。碎碎念可以自然地带一句相关内容，不相关就别硬凑。`
     }
-    return `${base}${pageLine}\n现在随口碎碎念一句话：20 字以内，贴合时间背景，不要堆问候语。只输出这句话本身。`
+    const memeLine = memeDescription
+      ? `\n这次碎碎念会配一张表情包：${memeDescription}。台词要配合这张图。`
+      : ''
+    return `${base}${pageLine}${memeLine}\n现在随口碎碎念一句话：20 字以内，贴合时间背景，不要堆问候语。只输出这句话本身。`
   }
-  return `${base}\n正在和网站访客聊天，回复保持简短（一般两三句以内），可以聊技术、站内内容、摸鱼日常。`
+  return `${base}\n正在和网站访客聊天，回复保持简短（一般两三句以内），可以聊技术、站内内容、摸鱼日常。\n可用表情包（键名: 内容）：\n${memeListForChat()}\n如果想配一张表情包，把 [img:键名] 放在回复的最开头，只能从上面选；不合适就不配。`
 }
 
 // ── DeepSeek（OpenAI 兼容接口）────────────────────────────────

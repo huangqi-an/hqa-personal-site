@@ -175,9 +175,22 @@ var Dafeiyu = (() => {
       this.el.className = "dfy-bubble";
       shadow.appendChild(this.el);
     }
-    /** 显示一句话；durationMs 后自动隐藏。宠物贴近视口顶部时翻到下方 */
-    say(text, durationMs = 1e4, flipBelow = false) {
+    /**
+     * 显示一句话；durationMs 后自动隐藏。宠物贴近视口顶部时翻到下方。
+     * imageUrl：可选表情包（显示在文字下方，加载失败自动隐藏——素材缺失不破坏体验）
+     */
+    say(text, durationMs = 1e4, flipBelow = false, imageUrl) {
+      var _a;
       this.el.textContent = text;
+      (_a = this.el.querySelector("img")) == null ? void 0 : _a.remove();
+      if (imageUrl) {
+        const img = document.createElement("img");
+        img.src = imageUrl;
+        img.alt = "";
+        img.style.cssText = "display:block;margin:6px auto 0;max-height:110px;max-width:100%;border-radius:8px";
+        img.onerror = () => img.remove();
+        this.el.appendChild(img);
+      }
       this.el.style.bottom = flipBelow ? "auto" : "calc(100% + 12px)";
       this.el.style.top = flipBelow ? "calc(100% + 12px)" : "auto";
       this.el.style.opacity = "1";
@@ -265,7 +278,7 @@ var Dafeiyu = (() => {
       this.root.style.display = "none";
       const head = document.createElement("div");
       head.className = "dfy-chat-head";
-      head.textContent = "\u548C\u5927\u80A5\u9C7C\u804A\u804A";
+      head.textContent = handlers.title ? `\u548C${handlers.title}\u804A\u804A` : "\u548C\u5927\u80A5\u9C7C\u804A\u804A";
       const close = document.createElement("button");
       close.className = "dfy-chat-close";
       close.textContent = "\xD7";
@@ -346,14 +359,27 @@ var Dafeiyu = (() => {
     }
     startAssistant() {
       const el = this.appendMsg("dfy-msg-bot", "");
+      const textSpan = document.createElement("span");
+      el.appendChild(textSpan);
       const scroll = () => this.list.scrollTop = this.list.scrollHeight;
       return {
         push: (delta) => {
-          el.textContent += delta;
+          textSpan.textContent += delta;
+          scroll();
+        },
+        setImage: (url) => {
+          var _a;
+          (_a = el.querySelector("img")) == null ? void 0 : _a.remove();
+          const img = document.createElement("img");
+          img.src = url;
+          img.alt = "";
+          img.style.cssText = "display:block;margin-bottom:4px;max-height:130px;max-width:100%;border-radius:8px";
+          img.onerror = () => img.remove();
+          el.insertBefore(img, textSpan);
           scroll();
         },
         done: () => {
-          if (!el.textContent) el.textContent = "\u2026";
+          if (!textSpan.textContent) textSpan.textContent = "\u2026";
           scroll();
         },
         error: (msg) => {
@@ -385,6 +411,7 @@ var Dafeiyu = (() => {
       body: JSON.stringify({ messages }),
       signal: ctrl.signal
     }).then(async (res) => {
+      var _a;
       if (!res.ok || !res.body) {
         let msg = `\u8FDE\u63A5\u4E0D\u4E0A\u5927\u80A5\u9C7C\uFF08${res.status}\uFF09`;
         try {
@@ -421,6 +448,7 @@ var Dafeiyu = (() => {
                 return;
               }
               if (typeof evt.d === "string") handlers.onDelta(evt.d);
+              if (typeof evt.i === "string") (_a = handlers.onImage) == null ? void 0 : _a.call(handlers, evt.i);
             } catch {
             }
           }
@@ -508,13 +536,14 @@ var Dafeiyu = (() => {
       return this.openState;
     }
     /**
-     * @param affinity  好感数值（头部展示）
+     * @param name      宠物名（头部展示）
+     * @param affinity  好感数值
      * @param levelName 档位名
      * @param sleeping  当前是否睡着（决定「睡觉/叫醒」文案）
      * @param canChat   是否有聊天能力（无则隐藏聊天项）
      */
-    open(affinity, levelName, sleeping, canChat) {
-      this.head.textContent = `\u5927\u80A5\u9C7C \xB7 \u597D\u611F ${affinity}\uFF08${levelName}\uFF09`;
+    open(name, affinity, levelName, sleeping, canChat) {
+      this.head.textContent = `${name} \xB7 \u597D\u611F ${affinity}\uFF08${levelName}\uFF09`;
       this.sleepBtn.textContent = sleeping ? "\u23F0 \u53EB\u9192" : "\u{1F634} \u7761\u89C9";
       this.chatBtn.style.display = canChat ? "" : "none";
       this.openState = true;
@@ -856,6 +885,7 @@ var Dafeiyu = (() => {
       });
       if ((_c = this.endpoints) == null ? void 0 : _c.chat) {
         this.chatPanel = new ChatPanel(this.shadow, {
+          title: this.petName,
           onSend: (text) => this.sendChat(text),
           onClose: () => this.closeChat()
         });
@@ -1130,10 +1160,14 @@ var Dafeiyu = (() => {
       if (this.dead || this.reduced || !this.started || document.hidden) return;
       if (this.state !== "idle") return;
       let line = this.pickLine();
+      let image;
       if ((_a = this.endpoints) == null ? void 0 : _a.whisper) {
         const remote = await this.fetchWhisper();
         if (this.dead || this.state !== "idle") return;
-        if (remote) line = remote;
+        if (remote) {
+          line = remote.line;
+          image = remote.image ? this.memeUrl(remote.image) : void 0;
+        }
       }
       if (!line) return;
       this.clearTimers();
@@ -1141,7 +1175,7 @@ var Dafeiyu = (() => {
       this.bump();
       void this.player.play("talk-screen", true);
       const ny = (this.y + this.hPlaceholder() / 2) / window.innerHeight;
-      this.bubble.say(line, BUBBLE_MS, ny < 0.28);
+      this.bubble.say(line, BUBBLE_MS, ny < 0.28, image);
       this.setT(() => {
         if (this.state === "talk") {
           this.state = "idle";
@@ -1149,7 +1183,7 @@ var Dafeiyu = (() => {
         }
       }, BUBBLE_MS);
     }
-    /** 拉一句后端碎碎念；任何失败都返回 null，由本地台词池兜底 */
+    /** 拉一句后端碎碎念（可带配图键名）；任何失败都返回 null，由本地台词池兜底 */
     async fetchWhisper() {
       var _a;
       const url = (_a = this.endpoints) == null ? void 0 : _a.whisper;
@@ -1168,7 +1202,12 @@ var Dafeiyu = (() => {
         const data = await res.json();
         if (typeof (data == null ? void 0 : data.line) === "string") {
           const t = data.line.trim();
-          if (t && t.length <= 120) return t;
+          if (t && t.length <= 120) {
+            return {
+              line: t,
+              image: typeof data.image === "string" ? data.image.slice(0, 40) : void 0
+            };
+          }
         }
         return null;
       } catch {
@@ -1321,6 +1360,10 @@ var Dafeiyu = (() => {
           acc += d;
           handle.push(d);
         },
+        onImage: (key) => {
+          const u = this.memeUrl(key);
+          if (u) handle.setImage(u);
+        },
         onDone: () => {
           handle.done();
           this.chatHistory = trimHistory([...outgoing, { role: "assistant", content: acc || "\u2026" }]);
@@ -1359,7 +1402,15 @@ var Dafeiyu = (() => {
       var _a;
       if (this.dead || !this.menu) return;
       const n = loadAffinity();
-      this.menu.open(n, levelOf(n).name, this.state === "sleep", !!((_a = this.endpoints) == null ? void 0 : _a.chat));
+      this.menu.open(this.petName, n, levelOf(n).name, this.state === "sleep", !!((_a = this.endpoints) == null ? void 0 : _a.chat));
+    }
+    get petName() {
+      var _a;
+      return (_a = this.opts.name) != null ? _a : "\u5927\u80A5\u9C7C";
+    }
+    /** 表情包键名 → 素材 URL；键名只放行 ASCII，防注入奇怪路径 */
+    memeUrl(key) {
+      return /^[a-z0-9-]{1,40}$/.test(key) ? `${this.opts.assetBase}memes/${key}.png` : void 0;
     }
     cancelLongPress() {
       if (this.longPressTimer) {

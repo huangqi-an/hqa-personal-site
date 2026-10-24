@@ -1,5 +1,14 @@
 import type { APIRoute } from 'astro'
-import { clientIp, deepseek, hasKey, localLine, rateAllow, systemPrompt } from './_lib'
+import {
+  clientIp,
+  deepseek,
+  hasKey,
+  localLine,
+  memeDesc,
+  randomMemeKey,
+  rateAllow,
+  systemPrompt
+} from './_lib'
 
 // 碎碎念：GET → { line, source }。任何失败/超限都降级本地台词，宠物体验不断流。
 export const prerender = false
@@ -25,10 +34,12 @@ export const GET: APIRoute = async ({ request }) => {
     path: (params.get('path') || '').slice(0, 120).replace(/[\r\n\t]/g, ' ')
   }
   try {
+    // 随机抽一张表情包，让台词配图
+    const image = randomMemeKey()
     const res = await deepseek(
       {
         messages: [
-          { role: 'system', content: systemPrompt('whisper', page) },
+          { role: 'system', content: systemPrompt('whisper', page, memeDesc(image)) },
           { role: 'user', content: '碎碎念一句' }
         ],
         max_tokens: 60,
@@ -43,7 +54,7 @@ export const GET: APIRoute = async ({ request }) => {
       // 模型爱加引号/书名号装饰，剥掉
       .replace(/^["「『“]+|["」』”]+$/g, '')
       .replace(/\s+/g, ' ')
-    if (line) return json({ line: line.slice(0, 120), source: 'deepseek' })
+    if (line) return json({ line: line.slice(0, 120), source: 'deepseek', image })
     throw new Error('empty content')
   } catch {
     return json({ line: localLine(), source: 'local' })
