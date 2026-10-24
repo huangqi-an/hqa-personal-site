@@ -18,11 +18,17 @@ export const GET: APIRoute = async ({ request }) => {
   if (!hasKey()) {
     return json({ line: localLine(), source: 'local' })
   }
+  // 页面感知参数：?title=...&path=...（长度截断，只作提示词素材）
+  const params = new URL(request.url).searchParams
+  const page = {
+    title: (params.get('title') || '').slice(0, 60).replace(/[\r\n\t]/g, ' '),
+    path: (params.get('path') || '').slice(0, 120).replace(/[\r\n\t]/g, ' ')
+  }
   try {
     const res = await deepseek(
       {
         messages: [
-          { role: 'system', content: systemPrompt('whisper') },
+          { role: 'system', content: systemPrompt('whisper', page) },
           { role: 'user', content: '碎碎念一句' }
         ],
         max_tokens: 60,

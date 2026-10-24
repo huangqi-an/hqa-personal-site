@@ -40,7 +40,11 @@ var Dafeiyu = (() => {
     "talk-screen",
     "talk-thinking",
     "walk-crab",
-    "rare-whale"
+    "rare-whale",
+    "pet-scratch",
+    "eat-rice",
+    "eat-caught",
+    "eat-icecream"
   ];
   function isAnimName(v) {
     return ANIMS.includes(v);
@@ -53,6 +57,7 @@ var Dafeiyu = (() => {
   ]);
   var IDLE_POOL = ["idle-breathing", "idle-humming", "idle-looking", "idle-yawn"];
   var CLICK_POOL = ["click-happy", "click-wave"];
+  var FEED_POOL = ["eat-rice", "eat-caught", "eat-icecream"];
 
   // src/config.ts
   var DEFAULTS = {
@@ -61,7 +66,8 @@ var Dafeiyu = (() => {
     size: 240,
     zIndex: 9999,
     whisperIntervalSec: 120,
-    enabledOnMobile: false
+    enabledOnMobile: false,
+    pageContext: true
   };
   var BUILTIN_LINES = [
     "\u5495\u565C\u5495\u565C\uFF5E",
@@ -89,6 +95,44 @@ var Dafeiyu = (() => {
     "\uFF08\u5410\u4E86\u4E00\u4E32\u6CE1\u6CE1\uFF09",
     "\u503C\u73ED\u4E2D\uFF0C\u6709\u4E8B\u6233\u6211\u3002"
   ];
+
+  // src/affinity.ts
+  var KEY = "dafeiyu:affinity";
+  var LEVELS = [
+    { at: 0, name: "\u964C\u751F" },
+    { at: 30, name: "\u719F\u6089" },
+    { at: 100, name: "\u8001\u670B\u53CB" },
+    { at: 300, name: "\u631A\u53CB" }
+  ];
+  var FRIEND_LINES = [
+    "\u90FD\u8BA4\u8BC6\u8FD9\u4E48\u4E45\u4E86\uFF0C\u8FD8\u662F\u89C9\u5F97\u4F60\u6700\u597D\u3002",
+    "\u8001\u670B\u53CB\u6765\u5566\uFF0C\u4ECA\u5929\u4F4D\u7F6E\u7ED9\u4F60\u7559\u7740\u5462\u3002",
+    "\u966A\u6211\u8FD9\u4E48\u4E45\uFF0C\u6DF1\u6D77\u91CC\u4E5F\u6570\u4F60\u8138\u719F\u3002"
+  ];
+  function loadAffinity() {
+    try {
+      const n = Number(JSON.parse(localStorage.getItem(KEY) || "0"));
+      return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+    } catch {
+      return 0;
+    }
+  }
+  function saveAffinity(n) {
+    try {
+      localStorage.setItem(KEY, String(Math.floor(n)));
+    } catch {
+    }
+  }
+  function addAffinity(delta) {
+    const n = loadAffinity() + delta;
+    saveAffinity(n);
+    return n;
+  }
+  function levelOf(n) {
+    let cur = LEVELS[0];
+    for (const lv of LEVELS) if (n >= lv.at) cur = lv;
+    return cur;
+  }
 
   // src/bubble.ts
   var Bubble = class {
@@ -388,6 +432,113 @@ var Dafeiyu = (() => {
     return ctrl;
   }
 
+  // src/menu.ts
+  var MENU_STYLE = `
+  .dfy-menu {
+    position: absolute;
+    bottom: calc(100% + 12px);
+    left: 0;
+    min-width: 148px;
+    border-radius: 12px;
+    background: rgba(32, 34, 40, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.22);
+    color: #f2f3f5;
+    font: 13px/1.6 system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    overflow: hidden;
+    display: none;
+    pointer-events: auto;
+  }
+  .dfy-menu.dfy-open { display: block; }
+  .dfy-menu-head {
+    padding: 7px 12px 5px;
+    font-size: 12px;
+    color: #b9bcc4;
+    border-bottom: 1px solid rgba(255,255,255,.1);
+  }
+  .dfy-menu button {
+    display: block; width: 100%; text-align: left;
+    padding: 7px 14px; border: 0; background: none;
+    color: inherit; font: inherit; cursor: pointer;
+  }
+  .dfy-menu button:hover { background: rgba(255,255,255,.09); }
+`;
+  var PetMenu = class {
+    constructor(shadow, host, handlers) {
+      this.openState = false;
+      this.handlers = handlers;
+      this.host = host;
+      const style = document.createElement("style");
+      style.textContent = MENU_STYLE;
+      shadow.appendChild(style);
+      this.root = document.createElement("div");
+      this.root.className = "dfy-menu";
+      this.head = document.createElement("div");
+      this.head.className = "dfy-menu-head";
+      this.root.appendChild(this.head);
+      const item = (label, fn) => {
+        const b = document.createElement("button");
+        b.textContent = label;
+        b.addEventListener("click", () => {
+          this.close();
+          fn();
+        });
+        this.root.appendChild(b);
+        return b;
+      };
+      item("\u{1F4AC} \u8BF4\u53E5\u8BDD", handlers.onSay);
+      item("\u{1F35A} \u5582\u98DF", handlers.onFeed);
+      this.sleepBtn = item("\u{1F634} \u7761\u89C9", handlers.onToggleSleep);
+      this.chatBtn = item("\u{1F4AC} \u804A\u5929", handlers.onChat);
+      item("\u{1F3AF} \u56DE\u539F\u4F4D", handlers.onResetPos);
+      shadow.appendChild(this.root);
+      this.onDocDown = (e) => {
+        if (!this.openState) return;
+        if (!e.composedPath().includes(this.host)) this.close();
+      };
+      this.onKey = (e) => {
+        if (e.key === "Escape" && this.openState) this.close();
+      };
+      this.onScroll = () => this.close();
+      document.addEventListener("pointerdown", this.onDocDown, true);
+      document.addEventListener("keydown", this.onKey);
+      window.addEventListener("scroll", this.onScroll, { passive: true });
+    }
+    get isOpen() {
+      return this.openState;
+    }
+    /**
+     * @param affinity  好感数值（头部展示）
+     * @param levelName 档位名
+     * @param sleeping  当前是否睡着（决定「睡觉/叫醒」文案）
+     * @param canChat   是否有聊天能力（无则隐藏聊天项）
+     */
+    open(affinity, levelName, sleeping, canChat) {
+      this.head.textContent = `\u5927\u80A5\u9C7C \xB7 \u597D\u611F ${affinity}\uFF08${levelName}\uFF09`;
+      this.sleepBtn.textContent = sleeping ? "\u23F0 \u53EB\u9192" : "\u{1F634} \u7761\u89C9";
+      this.chatBtn.style.display = canChat ? "" : "none";
+      this.openState = true;
+      this.root.classList.add("dfy-open");
+      this.root.style.marginLeft = "0";
+      const r = this.root.getBoundingClientRect();
+      const vw = window.innerWidth;
+      let shift = 0;
+      if (r.left < 8) shift = 8 - r.left;
+      else if (r.right > vw - 8) shift = vw - 8 - r.right;
+      if (shift !== 0) this.root.style.marginLeft = `${shift}px`;
+    }
+    close() {
+      this.openState = false;
+      this.root.classList.remove("dfy-open");
+    }
+    destroy() {
+      document.removeEventListener("pointerdown", this.onDocDown, true);
+      document.removeEventListener("keydown", this.onKey);
+      window.removeEventListener("scroll", this.onScroll);
+      this.root.remove();
+    }
+  };
+
   // src/physics.ts
   var DRAG_THRESHOLD_PX = 6;
   var SAMPLE_WINDOW_MS = 100;
@@ -625,8 +776,10 @@ var Dafeiyu = (() => {
   var COMBO_ANGRY = 5;
   var THROW_SPEED = 0.5;
   var RARE_CHANCE = 0.02;
+  var RARE_CHANCE_FRIEND = 0.05;
   var WANDER_CHANCE = 0.08;
   var BUBBLE_MS = 1e4;
+  var LONG_PRESS_MS = 800;
   var CHAT_HISTORY_KEY = "dafeiyu:chat-history";
   var CHAT_MAX_ITEMS = 10;
   var ASPECT_H = 9 / 16;
@@ -658,6 +811,9 @@ var Dafeiyu = (() => {
       this.chatOpen = false;
       this.chatHistory = [];
       this.chatAbort = null;
+      this.menu = null;
+      this.longPressTimer = 0;
+      this.justPetted = false;
       this.onActivity = () => {
         this.lastActivity = Date.now();
         this.started = true;
@@ -709,6 +865,26 @@ var Dafeiyu = (() => {
           () => this.chatOpen ? this.closeChat() : this.openChat()
         );
       }
+      this.menu = new PetMenu(this.shadow, this.host, {
+        onSay: () => this.forceSay(),
+        onFeed: () => this.feed(),
+        onToggleSleep: () => this.toggleSleep(),
+        onResetPos: () => this.resetPos(),
+        onChat: () => this.chatOpen ? this.closeChat() : this.openChat()
+      });
+      this.video.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        this.openMenu();
+      });
+      this.video.addEventListener("pointerdown", () => {
+        this.cancelLongPress();
+        this.longPressTimer = window.setTimeout(() => this.petting(), LONG_PRESS_MS);
+      });
+      this.video.addEventListener("pointerup", () => this.cancelLongPress());
+      this.video.addEventListener("pointercancel", () => this.cancelLongPress());
+      this.video.addEventListener("pointermove", (e) => {
+        if (e.buttons && this.longPressTimer) this.cancelLongPress();
+      });
       document.addEventListener("pointerdown", this.onActivity, { passive: true, capture: true });
       document.addEventListener("keydown", this.onActivity, { passive: true, capture: true });
       document.addEventListener("visibilitychange", this.onVisibility);
@@ -842,8 +1018,9 @@ var Dafeiyu = (() => {
     }
     pickNext() {
       if (this.dead || this.reduced || this.state !== "idle") return;
+      const rare = loadAffinity() >= 100 ? RARE_CHANCE_FRIEND : RARE_CHANCE;
       const r = Math.random();
-      if (r < RARE_CHANCE && !this.player.unavailable.has("rare-whale")) {
+      if (r < rare && !this.player.unavailable.has("rare-whale")) {
         this.runOnce("rare-whale", "react");
         return;
       }
@@ -978,9 +1155,14 @@ var Dafeiyu = (() => {
       const url = (_a = this.endpoints) == null ? void 0 : _a.whisper;
       if (!url) return null;
       try {
+        const target = new URL(url, location.href);
+        if (this.opts.pageContext !== false) {
+          target.searchParams.set("title", document.title.slice(0, 60));
+          target.searchParams.set("path", location.pathname.slice(0, 120));
+        }
         const ctrl = new AbortController();
         const timer = window.setTimeout(() => ctrl.abort(), 8e3);
-        const res = await fetch(url, { signal: ctrl.signal });
+        const res = await fetch(target.href, { signal: ctrl.signal });
         window.clearTimeout(timer);
         if (!res.ok) return null;
         const data = await res.json();
@@ -994,7 +1176,8 @@ var Dafeiyu = (() => {
       }
     }
     pickLine() {
-      const pool = BUILTIN_LINES.concat(this.extraLines);
+      let pool = BUILTIN_LINES.concat(this.extraLines);
+      if (loadAffinity() >= 300) pool = pool.concat(FRIEND_LINES);
       if (!pool.length) return null;
       let line = pool[Math.floor(Math.random() * pool.length)];
       if (pool.length > 1) {
@@ -1069,6 +1252,10 @@ var Dafeiyu = (() => {
       this.lastActivity = Date.now();
       this.started = true;
       if (this.dead) return;
+      if (this.justPetted) {
+        this.justPetted = false;
+        return;
+      }
       if (this.chatOpen) return;
       if (this.state === "sleep") {
         this.wake();
@@ -1167,6 +1354,77 @@ var Dafeiyu = (() => {
       } catch {
       }
     }
+    // ── 互动（右键菜单 / 手势入口）──────────────────────────────
+    openMenu() {
+      var _a;
+      if (this.dead || !this.menu) return;
+      const n = loadAffinity();
+      this.menu.open(n, levelOf(n).name, this.state === "sleep", !!((_a = this.endpoints) == null ? void 0 : _a.chat));
+    }
+    cancelLongPress() {
+      if (this.longPressTimer) {
+        window.clearTimeout(this.longPressTimer);
+        this.longPressTimer = 0;
+      }
+    }
+    /** 摸头：长按触发，好感 +1；好感 ≥30（熟悉）后有概率冒泡回应 */
+    petting() {
+      this.cancelLongPress();
+      if (this.dead || this.chatOpen) return;
+      this.justPetted = true;
+      this.lastActivity = Date.now();
+      const n = addAffinity(1);
+      this.bubble.hide();
+      if (n >= 30 && Math.random() < 0.34) {
+        const pets = ["\u5495\u565C\u5495\u565C\u2026\u597D\u8212\u670D", "\u518D\u6478\u4F1A\u513F\u4E5F\u884C", "\u6478\u5934\u6740\uFF01"];
+        this.bubble.say(pets[Math.floor(Math.random() * pets.length)], 5e3);
+      }
+      void this.runOnce("pet-scratch", "react");
+    }
+    /** 喂食：好感 +2，随机吃一段；抽到「偷吃被抓住」配一句嘴硬台词 */
+    feed() {
+      if (this.dead) return;
+      this.lastActivity = Date.now();
+      addAffinity(2);
+      this.bubble.hide();
+      const pool = FEED_POOL.filter((a) => !this.player.unavailable.has(a));
+      if (!pool.length) return;
+      const name = pool[Math.floor(Math.random() * pool.length)];
+      if (name === "eat-caught") this.bubble.say("\u4E0D\u3001\u4E0D\u662F\u6211\u5077\u5403\u7684\uFF01", 5e3);
+      this.state = "react";
+      void this.runOnce(name, "react");
+    }
+    /** 菜单里的睡觉/叫醒开关 */
+    toggleSleep() {
+      if (this.dead) return;
+      this.lastActivity = Date.now();
+      if (this.state === "sleep") {
+        this.wake();
+      } else {
+        this.clearTimers();
+        this.state = "sleep";
+        this.bump();
+        this.bubble.hide();
+        void this.player.play("sleep-snooze", true);
+      }
+    }
+    /** 回到默认角落（右下），并清掉记住的位置；进行中的抛掷也要停 */
+    resetPos() {
+      var _a;
+      if (this.dead) return;
+      (_a = this.flightCancel) == null ? void 0 : _a.call(this);
+      this.flightCancel = null;
+      if (this.state === "fly") {
+        this.state = "idle";
+        this.scheduleIdle(rand(300, 900));
+      }
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      this.x = vw - this.opts.size - MARGIN;
+      this.y = vh - this.hPlaceholder() - MARGIN;
+      this.applyTransform();
+      this.savePos();
+    }
     // ── 可见性 ────────────────────────────────────────────────────
     suspend() {
       var _a;
@@ -1218,24 +1476,26 @@ var Dafeiyu = (() => {
       void this.runOnce(name, "react");
     }
     destroy() {
-      var _a, _b, _c, _d, _e, _f;
+      var _a, _b, _c, _d, _e, _f, _g;
       if (this.dead && !this.host) {
         if (_Pet.current === this) _Pet.current = void 0;
         return;
       }
       this.dead = true;
       this.clearTimers();
+      this.cancelLongPress();
       (_a = this.flightCancel) == null ? void 0 : _a.call(this);
       (_b = this.chatAbort) == null ? void 0 : _b.abort();
       this.chatAbort = null;
-      (_c = this.detachDrag) == null ? void 0 : _c.call(this);
+      (_c = this.menu) == null ? void 0 : _c.destroy();
+      (_d = this.detachDrag) == null ? void 0 : _d.call(this);
       document.removeEventListener("pointerdown", this.onActivity, { capture: true });
       document.removeEventListener("keydown", this.onActivity, { capture: true });
       document.removeEventListener("visibilitychange", this.onVisibility);
       window.removeEventListener("resize", this.onResize);
-      (_d = this.bubble) == null ? void 0 : _d.destroy();
-      (_e = this.player) == null ? void 0 : _e.pause();
-      (_f = this.host) == null ? void 0 : _f.remove();
+      (_e = this.bubble) == null ? void 0 : _e.destroy();
+      (_f = this.player) == null ? void 0 : _f.pause();
+      (_g = this.host) == null ? void 0 : _g.remove();
       if (_Pet.current === this) _Pet.current = void 0;
     }
   };
@@ -1262,6 +1522,7 @@ var Dafeiyu = (() => {
       },
       say: (text) => ensure().forceSay(text),
       play: (name) => ensure().forcePlay(name),
+      feed: () => ensure().feed(),
       openChat: () => ensure().openChat(),
       closeChat: () => ensure().closeChat()
     };

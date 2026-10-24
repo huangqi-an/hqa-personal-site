@@ -18,11 +18,21 @@ export function timeContext(now = new Date()): string {
   return `现在是${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 星期${week} ${period}（${weekend ? '周末' : '工作日'}）。`
 }
 
-/** system 提示词唯一拼装点：人设 + 名字 + 时间背景（+ 场景指令） */
-export function systemPrompt(kind: 'whisper' | 'chat'): string {
+/** system 提示词唯一拼装点：人设 + 名字 + 时间背景（+ 页面上下文 + 场景指令） */
+export function systemPrompt(
+  kind: 'whisper' | 'chat',
+  page?: { title?: string; path?: string }
+): string {
   const base = `${PERSONA}\n你的名字是"大肥鱼"。\n${timeContext()}\n${SITE_FACTS}`
   if (kind === 'whisper') {
-    return `${base}\n现在随口碎碎念一句话：20 字以内，贴合时间背景，不要堆问候语。只输出这句话本身。`
+    // 页面感知：客户端带 title/path 时注入，碎碎念能就着访客正在看的内容说
+    let pageLine = ''
+    if (page && (page.title || page.path)) {
+      const t = page.title ? `《${page.title}》` : ''
+      const p = page.path ? `（路径 ${page.path}）` : ''
+      pageLine = `\n访客当前所在页面：${t}${p}。碎碎念可以自然地带一句相关内容，不相关就别硬凑。`
+    }
+    return `${base}${pageLine}\n现在随口碎碎念一句话：20 字以内，贴合时间背景，不要堆问候语。只输出这句话本身。`
   }
   return `${base}\n正在和网站访客聊天，回复保持简短（一般两三句以内），可以聊技术、站内内容、摸鱼日常。`
 }
