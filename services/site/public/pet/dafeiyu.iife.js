@@ -44,7 +44,9 @@ var Dafeiyu = (() => {
     "pet-scratch",
     "eat-rice",
     "eat-caught",
-    "eat-icecream"
+    "eat-icecream",
+    "play-gomoku",
+    "game-rage"
   ];
   function isAnimName(v) {
     return ANIMS.includes(v);
@@ -53,7 +55,8 @@ var Dafeiyu = (() => {
     "idle-breathing",
     "sleep-snooze",
     "talk-screen",
-    "talk-thinking"
+    "talk-thinking",
+    "play-gomoku"
   ]);
   var IDLE_POOL = ["idle-breathing", "idle-humming", "idle-looking", "idle-yawn"];
   var CLICK_POOL = ["click-happy", "click-wave"];
@@ -461,6 +464,289 @@ var Dafeiyu = (() => {
     return ctrl;
   }
 
+  // src/game.ts
+  var SIZE = 15;
+  var CELL = 22;
+  var PAD = CELL / 2 + 4;
+  var PANEL_STYLE2 = `
+  .dfy-game {
+    position: absolute;
+    bottom: calc(100% + 12px);
+    left: 0;
+    width: 348px;
+    max-width: calc(100vw - 24px);
+    border-radius: 14px;
+    background: rgba(32, 34, 40, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.22);
+    color: #f2f3f5;
+    font: 13px/1.6 system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    overflow: hidden;
+    display: none;
+    pointer-events: auto;
+  }
+  .dfy-game.dfy-open { display: block; }
+  .dfy-game-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,.1);
+  }
+  .dfy-game-head button {
+    border: 0; background: none; color: inherit; font: inherit;
+    cursor: pointer; padding: 0 4px; opacity: .75;
+  }
+  .dfy-game-head button:hover { opacity: 1; }
+  .dfy-game-status {
+    padding: 6px 12px 0; color: #b9bcc4; font-size: 12px;
+  }
+  .dfy-game canvas {
+    display: block; margin: 8px auto 12px; border-radius: 8px;
+    cursor: pointer; max-width: 100%; height: auto;
+  }
+`;
+  var GomokuPanel = class {
+    constructor(shadow, handlers) {
+      this.board = new Int8Array(SIZE * SIZE);
+      // 0 空 / 1 访客(黑) / 2 鱼(白)
+      this.turn = 1;
+      this.over = false;
+      this.openState = false;
+      this.timer = 0;
+      this.handlers = handlers;
+      const style = document.createElement("style");
+      style.textContent = PANEL_STYLE2;
+      shadow.appendChild(style);
+      this.root = document.createElement("div");
+      this.root.className = "dfy-game";
+      this.root.style.display = "none";
+      const head = document.createElement("div");
+      head.className = "dfy-game-head";
+      const title = document.createElement("span");
+      title.textContent = "\u548C\u5927\u80A5\u9C7C\u4E0B\u4E94\u5B50\u68CB";
+      const btns = document.createElement("span");
+      const reset = document.createElement("button");
+      reset.textContent = "\u91CD\u5F00";
+      reset.addEventListener("click", () => this.reset());
+      const close = document.createElement("button");
+      close.textContent = "\xD7";
+      close.setAttribute("aria-label", "\u5173\u95ED\u6E38\u620F");
+      close.addEventListener("click", () => this.close());
+      btns.append(reset, close);
+      head.append(title, btns);
+      this.statusEl = document.createElement("div");
+      this.statusEl.className = "dfy-game-status";
+      this.canvas = document.createElement("canvas");
+      this.canvas.width = SIZE * CELL + PAD * 2;
+      this.canvas.height = SIZE * CELL + PAD * 2;
+      this.canvas.addEventListener("click", (e) => this.onCanvasClick(e));
+      this.ctx = this.canvas.getContext("2d");
+      this.root.append(head, this.statusEl, this.canvas);
+      shadow.appendChild(this.root);
+      this.draw();
+    }
+    get isOpen() {
+      return this.openState;
+    }
+    open() {
+      this.openState = true;
+      this.root.style.display = "block";
+      requestAnimationFrame(() => this.root.classList.add("dfy-open"));
+      this.clampIntoViewport();
+      this.setStatus();
+    }
+    close() {
+      if (!this.openState) return;
+      this.openState = false;
+      this.root.classList.remove("dfy-open");
+      window.clearTimeout(this.timer);
+      window.setTimeout(() => {
+        if (!this.openState) this.root.style.display = "none";
+      }, 220);
+      this.handlers.onClose();
+    }
+    destroy() {
+      window.clearTimeout(this.timer);
+      this.root.remove();
+    }
+    clampIntoViewport() {
+      this.root.style.marginLeft = "0";
+      const r = this.root.getBoundingClientRect();
+      const vw = window.innerWidth;
+      let shift = 0;
+      if (r.left < 8) shift = 8 - r.left;
+      else if (r.right > vw - 8) shift = vw - 8 - r.right;
+      if (shift !== 0) this.root.style.marginLeft = `${shift}px`;
+    }
+    reset() {
+      this.board.fill(0);
+      this.turn = 1;
+      this.over = false;
+      window.clearTimeout(this.timer);
+      this.root.dataset.moves = "0";
+      this.draw();
+      this.setStatus();
+    }
+    moves() {
+      let n = 0;
+      for (const v of this.board) if (v) n++;
+      return n;
+    }
+    setStatus() {
+      if (this.over) return;
+      this.statusEl.textContent = this.turn === 1 ? "\u8F6E\u5230\u4F60\u4E86\uFF08\u9ED1\u68CB\uFF09" : "\u5927\u80A5\u9C7C\u601D\u8003\u4E2D\u2026";
+      this.root.dataset.moves = String(this.moves());
+    }
+    onCanvasClick(e) {
+      if (this.over || this.turn !== 1) return;
+      const rect = this.canvas.getBoundingClientRect();
+      const scale = this.canvas.width / rect.width;
+      const x = Math.round(((e.clientX - rect.left) * scale - PAD) / CELL);
+      const y = Math.round(((e.clientY - rect.top) * scale - PAD) / CELL);
+      if (x < 0 || y < 0 || x >= SIZE || y >= SIZE) return;
+      if (this.board[y * SIZE + x]) return;
+      this.place(x, y, 1);
+      if (this.over) return;
+      this.turn = 2;
+      this.setStatus();
+      this.timer = window.setTimeout(() => this.petMove(), 600 + Math.random() * 500);
+    }
+    petMove() {
+      if (this.over || !this.openState) return;
+      const idx = this.bestCell();
+      if (idx < 0) {
+        this.end("draw");
+        return;
+      }
+      this.place(idx % SIZE, Math.floor(idx / SIZE), 2);
+      if (!this.over) {
+        this.turn = 1;
+        this.setStatus();
+      }
+    }
+    place(x, y, who) {
+      this.board[y * SIZE + x] = who;
+      this.draw();
+      if (this.wins(x, y, who)) {
+        this.end(who === 1 ? "player" : "pet");
+      } else if (this.moves() >= SIZE * SIZE) {
+        this.end("draw");
+      }
+    }
+    /** 以 (x,y) 为中心四个方向数连子 */
+    wins(x, y, who) {
+      for (const [dx, dy] of [[1, 0], [0, 1], [1, 1], [1, -1]]) {
+        let n = 1;
+        for (const s of [1, -1]) {
+          let i = x + dx * s;
+          let j = y + dy * s;
+          while (i >= 0 && j >= 0 && i < SIZE && j < SIZE && this.board[j * SIZE + i] === who) {
+            n++;
+            i += dx * s;
+            j += dy * s;
+          }
+        }
+        if (n >= 5) return true;
+      }
+      return false;
+    }
+    // ── 启发式 AI ──────────────────────────────────────────────
+    /** 该点对 who 的方向价值：连子数 × 开放端数 */
+    lineScore(x, y, who) {
+      let total = 0;
+      for (const [dx, dy] of [[1, 0], [0, 1], [1, 1], [1, -1]]) {
+        let run = 1;
+        let open = 0;
+        for (const s of [1, -1]) {
+          let i = x + dx * s;
+          let j = y + dy * s;
+          while (i >= 0 && j >= 0 && i < SIZE && j < SIZE && this.board[j * SIZE + i] === who) {
+            run++;
+            i += dx * s;
+            j += dy * s;
+          }
+          if (i >= 0 && j >= 0 && i < SIZE && j < SIZE && this.board[j * SIZE + i] === 0) open++;
+        }
+        if (run >= 5) total += 1e4;
+        else if (open === 0) total += 0;
+        else total += run * run * open;
+      }
+      return total;
+    }
+    bestCell() {
+      let best = -1;
+      let bestScore = -1;
+      const center = (SIZE - 1) / 2;
+      for (let i = 0; i < SIZE * SIZE; i++) {
+        if (this.board[i]) continue;
+        const x = i % SIZE;
+        const y = Math.floor(i / SIZE);
+        const myWin = this.wins(x, y, 2);
+        const yourWin = this.wins(x, y, 1);
+        let score;
+        if (myWin) score = 1e9;
+        else if (yourWin) score = 1e8;
+        else {
+          score = this.lineScore(x, y, 2) * 1.1 + this.lineScore(x, y, 1);
+          score -= (Math.abs(x - center) + Math.abs(y - center)) * 2;
+        }
+        if (score > bestScore) {
+          bestScore = score;
+          best = i;
+        }
+      }
+      return best;
+    }
+    end(result) {
+      this.over = true;
+      this.statusEl.textContent = result === "player" ? "\u4F60\u8D62\u4E86\uFF01\u70B9\u300C\u91CD\u5F00\u300D\u518D\u6765\u4E00\u5C40" : result === "pet" ? "\u5927\u80A5\u9C7C\u8D62\u4E86\uFF5E\u4E0D\u670D\u5C31\u91CD\u5F00" : "\u5E73\u5C40\uFF0C\u68CB\u9022\u5BF9\u624B";
+      this.root.dataset.moves = String(this.moves());
+      this.handlers.onEnd(result);
+    }
+    // ── 绘制 ────────────────────────────────────────────────────
+    draw() {
+      const c = this.ctx;
+      const w = this.canvas.width;
+      c.fillStyle = "#e2c08d";
+      c.fillRect(0, 0, w, w);
+      c.strokeStyle = "#8a6a3a";
+      c.lineWidth = 1;
+      for (let i = 0; i < SIZE; i++) {
+        c.beginPath();
+        c.moveTo(PAD + i * CELL, PAD);
+        c.lineTo(PAD + i * CELL, w - PAD);
+        c.stroke();
+        c.beginPath();
+        c.moveTo(PAD, PAD + i * CELL);
+        c.lineTo(w - PAD, PAD + i * CELL);
+        c.stroke();
+      }
+      c.fillStyle = "#8a6a3a";
+      for (const [sx, sy] of [[3, 3], [11, 3], [7, 7], [3, 11], [11, 11]]) {
+        c.beginPath();
+        c.arc(PAD + sx * CELL, PAD + sy * CELL, 2.5, 0, Math.PI * 2);
+        c.fill();
+      }
+      for (let y = 0; y < SIZE; y++) {
+        for (let x = 0; x < SIZE; x++) {
+          const v = this.board[y * SIZE + x];
+          if (!v) continue;
+          c.beginPath();
+          c.arc(PAD + x * CELL, PAD + y * CELL, CELL * 0.42, 0, Math.PI * 2);
+          if (v === 1) {
+            c.fillStyle = "#1c1e22";
+            c.fill();
+            c.strokeStyle = "#000";
+            c.stroke();
+          } else {
+            c.fillStyle = "#f7f7f5";
+            c.fill();
+            c.strokeStyle = "#b9b5ad";
+            c.stroke();
+          }
+        }
+      }
+    }
+  };
+
   // src/menu.ts
   var MENU_STYLE = `
   .dfy-menu {
@@ -519,6 +805,7 @@ var Dafeiyu = (() => {
       item("\u{1F35A} \u5582\u98DF", handlers.onFeed);
       this.sleepBtn = item("\u{1F634} \u7761\u89C9", handlers.onToggleSleep);
       this.chatBtn = item("\u{1F4AC} \u804A\u5929", handlers.onChat);
+      item("\u265F \u4E94\u5B50\u68CB", handlers.onGame);
       this.voiceBtn = item("\u{1F50A} \u8BED\u97F3\uFF1A\u5F00", handlers.onToggleVoice);
       this.voiceCycleBtn = item("\u{1F3A4} \u97F3\u8272", handlers.onCycleVoice);
       item("\u{1F3AF} \u56DE\u539F\u4F4D", handlers.onResetPos);
@@ -947,6 +1234,8 @@ var Dafeiyu = (() => {
       this.chatHistory = [];
       this.chatAbort = null;
       this.menu = null;
+      this.gamePanel = null;
+      this.gameOpen = false;
       this.longPressTimer = 0;
       this.justPetted = false;
       this.onActivity = () => {
@@ -1002,12 +1291,17 @@ var Dafeiyu = (() => {
           () => this.chatOpen ? this.closeChat() : this.openChat()
         );
       }
+      this.gamePanel = new GomokuPanel(this.shadow, {
+        onEnd: (result) => this.onGameEnd(result),
+        onClose: () => this.closeGame()
+      });
       this.menu = new PetMenu(this.shadow, this.host, {
         onSay: () => this.forceSay(),
         onFeed: () => this.feed(),
         onToggleSleep: () => this.toggleSleep(),
         onResetPos: () => this.resetPos(),
         onChat: () => this.chatOpen ? this.closeChat() : this.openChat(),
+        onGame: () => this.gameOpen ? this.closeGame() : this.openGame(),
         onToggleVoice: () => this.setVoice(!this.speech.enabled),
         onCycleVoice: () => this.cycleVoice()
       });
@@ -1159,6 +1453,7 @@ var Dafeiyu = (() => {
     }
     pickNext() {
       if (this.dead || this.reduced || this.state !== "idle") return;
+      if (this.gameOpen) return;
       const rare = loadAffinity() >= 100 ? RARE_CHANCE_FRIEND : RARE_CHANCE;
       const r = Math.random();
       if (r < rare && !this.player.unavailable.has("rare-whale")) {
@@ -1247,7 +1542,7 @@ var Dafeiyu = (() => {
     // ── 睡眠 ──────────────────────────────────────────────────────
     checkSleep() {
       if (this.dead) return;
-      if (this.state === "idle" && Date.now() - this.lastActivity > SLEEP_AFTER_MS) {
+      if (this.state === "idle" && !this.gameOpen && Date.now() - this.lastActivity > SLEEP_AFTER_MS) {
         this.state = "sleep";
         this.bump();
         void this.player.play("sleep-snooze", true);
@@ -1269,7 +1564,7 @@ var Dafeiyu = (() => {
     async tryWhisper() {
       var _a;
       if (this.dead || this.reduced || !this.started || document.hidden) return;
-      if (this.state !== "idle") return;
+      if (this.state !== "idle" || this.gameOpen) return;
       let line = this.pickLine();
       let image;
       if ((_a = this.endpoints) == null ? void 0 : _a.whisper) {
@@ -1408,6 +1703,7 @@ var Dafeiyu = (() => {
         return;
       }
       if (this.chatOpen) return;
+      if (this.gameOpen) return;
       if (this.state === "sleep") {
         this.wake();
         return;
@@ -1428,6 +1724,7 @@ var Dafeiyu = (() => {
     // ── 聊天（endpoints.chat 配置后启用）─────────────────────────
     openChat() {
       if (this.dead || !this.chatPanel) return;
+      if (this.gameOpen) this.closeGame();
       if (!this.chatOpen) {
         this.chatOpen = true;
         this.clearTimers();
@@ -1606,6 +1903,41 @@ var Dafeiyu = (() => {
       this.applyTransform();
       this.savePos();
     }
+    // ── 五子棋（本地小游戏）─────────────────────────────────────
+    openGame() {
+      if (this.dead || !this.gamePanel) return;
+      if (this.chatOpen) this.closeChat();
+      if (!this.gameOpen) {
+        this.gameOpen = true;
+        this.clearTimers();
+        this.bubble.hide();
+        void this.player.play("play-gomoku", true);
+      }
+      this.gamePanel.open();
+    }
+    closeGame() {
+      var _a;
+      if (!this.gameOpen) return;
+      this.gameOpen = false;
+      (_a = this.gamePanel) == null ? void 0 : _a.close();
+      if (!this.dead && !this.reduced) {
+        this.state = "idle";
+        void this.player.play("idle-breathing", true);
+        this.scheduleIdle(rand(300, 900));
+      }
+    }
+    /** 终局反应：访客赢 → 气急败坏；鱼赢 → 开心跃动；平局 → 哼歌。完事回到对局循环 */
+    onGameEnd(result) {
+      this.lastActivity = Date.now();
+      addAffinity(result === "player" ? 5 : 3);
+      const react = result === "player" ? "game-rage" : result === "pet" ? "click-happy" : "idle-humming";
+      const line = result === "player" ? "\u53EF\u6076\uFF01\u8FD9\u5C40\u4E0D\u7B97\uFF0C\u518D\u6765\uFF01" : result === "pet" ? "\u563F\u563F\uFF0C\u627F\u8BA9\u627F\u8BA9\uFF5E" : "\u5E73\u5C40\u4E5F\u633A\u597D\uFF0C\u68CB\u9022\u5BF9\u624B\u3002";
+      this.bubble.say(line, 6e3);
+      this.speech.speak(line);
+      void this.player.playOnce(react).then(() => {
+        if (!this.dead && this.gameOpen) void this.player.play("play-gomoku", true);
+      });
+    }
     // ── 可见性 ────────────────────────────────────────────────────
     suspend() {
       var _a;
@@ -1618,6 +1950,10 @@ var Dafeiyu = (() => {
       if (this.dead || this.reduced) return;
       if (this.chatOpen) {
         void this.player.play("talk-screen", true);
+        return;
+      }
+      if (this.gameOpen) {
+        void this.player.play("play-gomoku", true);
         return;
       }
       if (this.state === "sleep") {
@@ -1658,7 +1994,7 @@ var Dafeiyu = (() => {
       void this.runOnce(name, "react");
     }
     destroy() {
-      var _a, _b, _c, _d, _e, _f, _g;
+      var _a, _b, _c, _d, _e, _f, _g, _h;
       if (this.dead && !this.host) {
         if (_Pet.current === this) _Pet.current = void 0;
         return;
@@ -1670,15 +2006,16 @@ var Dafeiyu = (() => {
       (_b = this.chatAbort) == null ? void 0 : _b.abort();
       this.chatAbort = null;
       (_c = this.menu) == null ? void 0 : _c.destroy();
+      (_d = this.gamePanel) == null ? void 0 : _d.destroy();
       this.speech.cancel();
-      (_d = this.detachDrag) == null ? void 0 : _d.call(this);
+      (_e = this.detachDrag) == null ? void 0 : _e.call(this);
       document.removeEventListener("pointerdown", this.onActivity, { capture: true });
       document.removeEventListener("keydown", this.onActivity, { capture: true });
       document.removeEventListener("visibilitychange", this.onVisibility);
       window.removeEventListener("resize", this.onResize);
-      (_e = this.bubble) == null ? void 0 : _e.destroy();
-      (_f = this.player) == null ? void 0 : _f.pause();
-      (_g = this.host) == null ? void 0 : _g.remove();
+      (_f = this.bubble) == null ? void 0 : _f.destroy();
+      (_g = this.player) == null ? void 0 : _g.pause();
+      (_h = this.host) == null ? void 0 : _h.remove();
       if (_Pet.current === this) _Pet.current = void 0;
     }
   };
@@ -1708,7 +2045,9 @@ var Dafeiyu = (() => {
       feed: () => ensure().feed(),
       setVoice: (on) => ensure().setVoice(on),
       openChat: () => ensure().openChat(),
-      closeChat: () => ensure().closeChat()
+      closeChat: () => ensure().closeChat(),
+      openGame: () => ensure().openGame(),
+      closeGame: () => ensure().closeGame()
     };
   }
   var index_default = { mount };
