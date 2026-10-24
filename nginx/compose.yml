@@ -51,6 +51,16 @@ services:
     #     docker compose exec nginx nginx -s reload
     #   即可热加载，不用重建容器。
 
+      - ../apps/components/dist:/usr/share/nginx/html/components:ro
+    # ↑ 组件库（apps/ 静态站路径的第一个消费者，做法见 docs/架构设计.md §5.2）：
+    #   构建产物只读挂载，nginx 直接读盘返回，不经过任何业务容器、零运行内存。
+    #   路径相对本文件所在目录（nginx/），所以是 ../apps/...。
+    #   两个坑：
+    #   1. 改挂载必须 docker compose up -d nginx 重建容器，reload 不会重读 volumes；
+    #   2. 挂载的宿主机目录必须先存在——dist/ 已构建好才能起容器，否则 Docker
+    #      会自动建一个 root 属主的空目录，nginx 静默 404。
+    #   产物更新（pnpm build）走 bind mount 即时可见，不用动任何容器。
+
     networks:
       - web-net
     # ↑ 加入哪些网络。同一个网络内的容器才能用"容器名"互相访问，
