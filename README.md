@@ -50,7 +50,7 @@ services/
   redis/                 Redis 7（仅 db-net）
   hello-api/             参考样板，未编入编排、不启动
   _template/             新服务脚手架（不是可运行服务）
-apps/                    纯静态站备选路径（当前未使用）
+apps/                    纯静态站：components/ 组件库（/components/，三框架 Storybook）
 data/                    持久化数据（已 gitignore，属主是容器内 uid，清理需 sudo）
 scripts/                 网络初始化、服务脚手架、新建文章
 docs/                    架构设计文档
