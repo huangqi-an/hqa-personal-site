@@ -8,7 +8,77 @@ language: '中文'
 draft: false
 ---
 
-## 1. 改动在哪一层
+## 1. 配置初始化
+
+**装完 Git 第一件事是配名字和邮箱**，每次提交都会写进记录：
+
+```bash
+git config --global user.name "your-name"
+git config --global user.email "you@example.com"
+```
+
+`--global` 写进 `~/.gitconfig`，对当前用户的所有仓库生效；不加 `--global` 只对当前仓库生效，写进 `.git/config`。优先级是仓库 > 全局 > 系统。
+
+查看当前生效的值，以及它们来自哪个文件：
+
+```bash
+git config --list --show-origin
+```
+
+**默认分支名**可以改。老版本 `git init` 会先打一段提示：
+
+```
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+Initialized empty Git repository in /tmp/demo/.git/
+```
+
+按它说的配一次，以后新建仓库默认就是 `main`：
+
+```bash
+git config --global init.defaultBranch main
+```
+
+**SSH key** 用 ed25519，比 RSA 短，安全性也更好：
+
+```bash
+ssh-keygen -t ed25519 -C "you@example.com"
+```
+
+一路回车，生成两个文件：`~/.ssh/id_ed25519` 是私钥，不要外传；`~/.ssh/id_ed25519.pub` 是公钥，内容贴到 GitHub / GitLab 的 SSH keys 设置里。
+
+验证连通：
+
+```bash
+ssh -T git@github.com
+# Hi your-name! You've successfully authenticated, but GitHub does not provide shell access.
+```
+
+**建仓库有两种入口：**
+
+```bash
+git init                                    # 空目录或已有代码目录都能初始化
+git clone git@github.com:user/repo.git      # 从远程拉一份
+```
+
+**`.gitignore` 从第一次提交就该有。** 三条规则够应付大部分情况：
+
+| 写法 | 含义 |
+| :--- | :--- |
+| `*.log` | 忽略所有 `.log` 文件 |
+| `/dist` | 只忽略仓库根目录下的 `dist`，子目录里的同名文件夹不受影响 |
+| `!keep.log` | 反向排除，`keep.log` 不忽略（要放在 `*.log` 之后） |
+
+已经被跟踪的文件不受 `.gitignore` 影响，想让规则生效得先移出索引：
+
+```bash
+git rm -r --cached dist
+```
+
+## 2. 改动在哪一层
 
 Git 里一段改动会经过四个位置，撤销命令取决于它停在哪：
 
@@ -31,7 +101,7 @@ M  a.txt     ← 第一列 M：已经 add，在暂存区
 MM a.txt     ← 两列都有：add 之后又改了
 ```
 
-## 2. 撤销
+## 3. 撤销
 
 ### 还没 add
 
@@ -82,7 +152,7 @@ git revert HEAD            # 撤销最近一次提交
 
 `revert` 不改历史，别人拉代码不会出问题。撤销合并提交要加 `-m 1`，指定保留哪个父提交。
 
-## 3. 提交写错了
+## 4. 提交写错了
 
 **改最近一次提交的信息：**
 
@@ -99,7 +169,7 @@ git commit --amend --no-edit    # 合进上一个提交，信息不变
 
 **注意：** `amend` 会生成新的提交（hash 变了）。已经 push 的提交再 `amend`，推上去必须强推，别人拉下来会冲突。只在本地改。
 
-## 4. 分支与合并
+## 5. 分支与合并
 
 ```bash
 git switch -c feature      # 新建并切换
@@ -143,7 +213,7 @@ git commit
 git merge --abort
 ```
 
-## 5. 变基
+## 6. 变基
 
 `rebase` 把当前分支的提交「搬」到目标分支最新提交之后，历史是一条直线。
 
@@ -173,7 +243,7 @@ git rebase --abort
 
 **已经推送的分支不要 rebase。** 别人基于旧提交写的代码，rebase 之后会对不上。真要改，用 `git push --force-with-lease`，并且提前通知协作者。
 
-## 6. 搞砸了：reflog
+## 7. 搞砸了：reflog
 
 `reflog` 记录 HEAD 的每一次移动，包括 reset、checkout、commit、rebase。误操作之后先看它：
 
@@ -207,7 +277,7 @@ git switch -c feature <hash>   # 用它重建分支
 
 **救不回什么：** 从没被 Git 记录过的改动，比如 `reset --hard` 之前没 add 的修改。`restore` 丢掉的修改同样救不回。
 
-## 7. 暂存与远程
+## 8. 暂存与远程
 
 ### 临时保存：stash
 
@@ -254,7 +324,7 @@ git push --force-with-lease
 
 它会在远程分支与你上次拉取的不一致时拒绝推送，比 `--force` 安全一档，但仍然会改写历史。
 
-## 8. 常见报错对照
+## 9. 常见报错对照
 
 | 报错 | 原因 | 处理 |
 | :--- | :--- | :--- |
