@@ -1,7 +1,7 @@
 ---
 title: 'Git 常用操作'
 publishDate: 2023-11-09
-description: '配置初始化、提交与撤销、分支与合并、reflog 找回、push 被拒：覆盖 git init、config、add、commit、reset、reflog 等常用命令。'
+description: 'Git 的每个操作都在四个位置之间搬代码：工作区、暂存区、本地库、远程。'
 tags:
   - git
 language: '中文'
