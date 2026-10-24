@@ -26,13 +26,22 @@
 
   /* 语义色 */
   --hqa-danger: 0 72% 48%;
+  --hqa-success: 152 56% 38%;
+  /* 遮罩底色（使用时按需加透明度） */
+  --hqa-overlay: 220 16% 14%;
 
   /* 形状与动效 */
   --hqa-radius-sm: 6px;
   --hqa-radius-md: 10px;
   --hqa-radius-lg: 16px;
   --hqa-shadow-card: 0 1px 3px hsl(220 16% 14% / 0.08), 0 4px 16px hsl(220 16% 14% / 0.06);
+  --hqa-shadow-popup: 0 8px 32px hsl(220 16% 14% / 0.18);
   --hqa-transition: 160ms ease;
+
+  /* 层级：弹层类组件共用，数字越大越靠上 */
+  --hqa-z-modal: 1000;
+  --hqa-z-toast: 1100;
+  --hqa-z-tooltip: 1200;
 }
 
 @media (prefers-color-scheme: dark) {

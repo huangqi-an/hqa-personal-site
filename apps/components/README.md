@@ -18,7 +18,12 @@ apps/components/
 ```
 
 三套组件 API 等价：`Button`（variant/size/disabled）、`Card`（title + 插槽）、
-`Switch`（checked/disabled/label，web 版派发 `change` 事件，Vue 版 v-model，React 版受控）。
+`Switch`（checked/disabled/label，web 版派发 `change` 事件，Vue 版 v-model，React 版受控）、
+`Dialog`（遮罩弹窗，`closeOnOverlay` 控制点遮罩是否关闭）、
+`Tabs`（受控/非受控，方向键 / Home / End 键盘漫游）、
+`Tooltip`（placement 四方向）、
+`Toast`（命令式 `toast(message, opts)` / `dismiss(id)`，页面挂一个 host 组件即可）。
+弹层类共用 `tokens.css` 的 z-index 层级（modal 1000 < toast 1100 < tooltip 1200）。
 
 ## 为什么是三个包
 

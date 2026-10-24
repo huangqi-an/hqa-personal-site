@@ -1,3 +1,8 @@
 export { Button, type ButtonProps } from './components/Button'
 export { Card, type CardProps } from './components/Card'
 export { Switch, type SwitchProps } from './components/Switch'
+export { Dialog, type DialogProps, type DialogCloseSource } from './components/Dialog'
+export { Tabs, type TabsProps, type TabItem } from './components/Tabs'
+export { Tooltip, type TooltipProps, type TooltipPlacement } from './components/Tooltip'
+export { toast, dismiss, ToastHost } from './toast'
+export type { ToastType, ToastItem, ToastOptions } from './toast'
