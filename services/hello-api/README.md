@@ -3,8 +3,8 @@
 端到端链路验证服务（**Go 版**）。存在的唯一目的：证明
 `浏览器 → 安全组:80 → nginx → web-net → 业务容器` 这条路径是通的。
 
-后续写 Go 服务时，本目录可以整个照着抄（多阶段 Dockerfile + compose + 健康检查 + 反代接入）。
-Node/TypeScript 版的等价样板见 `services/hello-node/`。
+后续写 Go 服务时，本目录可以整个照着抄（多阶段 Dockerfile + compose + 健康检查 + 反代接入）；
+语言无关的接入脚手架见 `services/_template/`。
 
 ## 服务记录项
 
