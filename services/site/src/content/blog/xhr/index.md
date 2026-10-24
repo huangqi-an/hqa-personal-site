@@ -1,7 +1,7 @@
 ---
 title: 'XMLHttpRequest'
 publishDate: 2023-12-07
-description: 'XHR 是按状态机走的：open 配置、send 发送、事件回调读结果，出错时 status 可能是 0。'
+description: 'XMLHttpRequest（简称 XHR）是浏览器内置的一个 API 对象，主要用于在后台与服务器交换数据。'
 tags:
   - javascript
   - http
