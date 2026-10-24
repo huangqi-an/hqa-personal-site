@@ -2,6 +2,7 @@
 import { Footer, Header, ThemeProvider } from 'astro-pure/components/basic'
 import type { SiteMeta } from 'astro-pure/types'
 import BaseHead from '@/components/BaseHead.astro'
+import SitePet from '@/components/pet/SitePet.astro'
 import config from '@/site-config'
 
 // Import the global.css file here so that it is included on
@@ -47,6 +48,9 @@ const {
       </div>
       <Footer />
     </div>
+
+    {/* 网页宠物（全站常驻，Shadow DOM 隔离） */}
+    <SitePet />
 
     {/* Set highlight color */}
     <style define:vars={{ highlightColor }}>

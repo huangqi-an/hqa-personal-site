@@ -75,6 +75,9 @@ services:
     working_dir: /web
     ports:
       - "4321:4321"
+    environment:
+      # dev 模式测宠物 AI 时用：从本目录（services/site/.env）插值，缺省为空走降级
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
     volumes:
       - .:/web
       - node_modules:/web/node_modules

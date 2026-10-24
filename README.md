@@ -22,6 +22,10 @@ cp services/postgres/.env.example services/postgres/.env
 # 把 change-me 换成随机值，生成方式见 docs/架构设计.md §9.7
 chmod 600 services/postgres/.env
 
+# 2b.（可选）网页宠物的 AI——大肥鱼接 DeepSeek；跳过则宠物用本地台词池
+cp .env.example .env          # 仓库根目录，把 change-me 换成 DeepSeek key
+chmod 600 .env
+
 # 3. 构建并启动
 docker compose build site
 docker compose up -d site nginx

@@ -23,6 +23,10 @@ services:
       # 显式声明监听地址：只监听 127.0.0.1 的话 nginx 反代会 502
       HOST: 0.0.0.0
       PORT: 4321
+      # 网页宠物（大肥鱼）的 DeepSeek key。值来自仓库根 .env 的变量插值；
+      # 没配就是空串，API 路由自动降级本地台词池，不构成硬依赖。
+      # 刻意不用 env_file: .env——文件不存在会让整份编排解析失败（架构文档 §9.5）
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
 
     networks:
       - web-net

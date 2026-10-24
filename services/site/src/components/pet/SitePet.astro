@@ -1,0 +1,31 @@
+---
+// 网页宠物「大肥鱼」：独立包 dafeiyu 的第一个消费者。
+// 产物与素材由 dafeiyu 仓库的 scripts/sync-to-site.sh 同步进 public/pet/，
+// 接入方式与 CDN 用户一致（<script src> + 全局 mount），见 dafeiyu/README。
+const assetBase = '/pet/assets/'
+const size = 240
+// 初始位置偏左一点：主题的「返回顶部」按钮在右下角（bottom-8 end-8），别撞上。
+// 命名 startPos：define:vars 与 mount 的键名分开，避免混淆
+const startPos = { x: 0.82, y: 0.94 }
+// 站点定制台词，追加在包内置台词池之外
+const lines = [
+  '欢迎来黄其安的小站～',
+  '博客在 /blog，文档在 /docs。',
+  '这篇不错，看完记得翻翻别的。',
+  '服务器只有 2 核 2G，对它好点。',
+  '游累了，在右下角趴一会儿。'
+]
+const whisperIntervalSec = 180
+// 宠物 AI 后端：本站 API 路由（密钥在服务端，见 src/pages/api/pet/）。
+// 未配 key 时这两个路由自动降级，宠物退回本地台词池，不影响使用
+const endpoints = { whisper: '/api/pet/whisper', chat: '/api/pet/chat' }
+---
+
+{/* is:inline：直接引用 public/ 下的产物文件，不进 Astro 打包管线 */}
+<script is:inline src='/pet/dafeiyu.iife.js'></script>
+<script is:inline define:vars={{ assetBase, size, startPos, lines, whisperIntervalSec, endpoints }}>
+  ;(() => {
+    if (window.Dafeiyu)
+      window.Dafeiyu.mount({ assetBase, size, position: startPos, lines, whisperIntervalSec, endpoints })
+  })()
+</script>

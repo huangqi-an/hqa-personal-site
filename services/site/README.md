@@ -1,158 +1,127 @@
-# Astro Theme Pure
+# site — 个人站（Astro SSR）
 
-[English](./README.md) | 简体中文
+基于 [astro-theme-pure](https://github.com/cworld1/astro-theme-pure) 改造的个人站：
+**页面与 API 跑在同一个 Node 进程里**（Astro SSR + `@astrojs/node` standalone），
+按普通业务服务接入编排，经 nginx 反代对外。
+部署、内存预算、写作流程等仓库级内容见根 [`README.md`](../../README.md)
+与 [`docs/架构设计.md`](../../docs/架构设计.md)。
 
-一个由 Astro 构建的，轻便简洁、快速强大的博客 & 文档主题。
 上游：cworld1/astro-theme-pure
-拉取时 main = 4ecd4762e1e750daf7a51978092d7cea8e14c0d6（2026-10-20）
+拉取时 main = `4ecd4762e1e750daf7a51978092d7cea8e14c0d6`（2026-10-20）
 
+## 服务记录项
 
-[![GitHub deployments](https://img.shields.io/github/deployments/cworld1/astro-theme-pure/production?style=flat&logo=vercel&label=vercel)](https://astro-pure.js.org/)
-[![NPM Version](https://img.shields.io/npm/v/astro-pure?logo=npm&style=flat)](https://www.npmjs.com/package/astro-pure)
-[![GitHub Release](https://img.shields.io/github/v/release/cworld1/astro-theme-pure?include_prereleases&style=flat&label=template)](https://github.com/cworld1/astro-theme-pure/releases)
-[![GitHub License](https://img.shields.io/github/license/cworld1/astro-theme-pure?style=flat)](https://github.com/cworld1/astro-theme-pure/blob/main/LICENSE)
+- **用途**：博客 + 文档站；页面、API 同进程
+- **技术栈**：Astro 6（SSR）+ 主题 astro-pure 的本地副本（见「与上游的关系」）
+- **访问方式**：`http://<host>/`（经 nginx 入口层）；本地开发走 `http://<机器IP>:4321`
+- **依赖**：无（当前不连 postgres / redis）
+- **数据目录**：无——内容就是源码，全在 `src/content/`，没有运行时持久化
+- **内存上限**：256m（实测空闲约 62 MiB，预算说明见架构文档 §7）
+- **内部端口**：4321（不映射宿主机）
 
-![image](./.github/assets/header.webp)
-![image](./.github/assets/body.webp)
+## 与上游的关系：vendor，不是依赖
 
-> [!NOTE]
-> 已知问题：Head 标签和自定义选项仍在开发中（已暴露模板用于修改）
+整个目录从上游模板 **vendor** 而来（已删掉它自己的 `.git`），不是 npm 依赖。
+改动按落点分四处：
 
-## 简介
+| 想改什么 | 改哪里 |
+|---|---|
+| 站点信息（标题、导航、页脚、评论、分享） | `src/site.config.ts` |
+| 站点地址（影响 RSS / sitemap / OG 图） | `astro.config.ts` 的 `site` |
+| 页面、布局、内容集合 schema | `src/` |
+| 主题组件与集成逻辑 | `packages/pure/`（本地包，**参与构建**） |
 
-查看 [预览 →](https://astro-pure.js.org/)
+`packages/pure` 参与构建：Dockerfile 会把 `node_modules/astro-pure`
+软链到这个目录，npm 装的同名包被替换——改主题组件必须改在那里，只改 `src/` 不生效。
 
-### :fire: 特性
+升级上游要**对比着搬**，`src/` 与 `packages/pure/` 都要 diff，
+完整步骤见根 README「升级上游主题」。主题的组件用法、配置项文档仍以上游为准：
+<https://astro-pure.js.org/docs>
 
-- [x] :rocket: 快速高性能
-- [x] :star: 简单干净的设计
-- [x] :iphone: 响应式设计
-- [x] :mag: 使用 [pagefind](https://pagefind.app/) 构建的全站搜索
-- [x] :world_map: 站点地图和 RSS 订阅
-- [x] :spider_web: 友好的 SEO
-- [x] :book: 目录（table of contents）
-- [x] :framed_picture: 动态为文章生成可供三方媒体预览的分享图像
-- [x] :framed_picture: Mediumzoom 图像灯箱
+## 目录速览
 
-### :package: 组件
-
-主题包含了许多组件，不仅可以在主题中使用，还可以在其他 Astro 项目中使用。
-
-> 其他 Astro 项目使用需要 UnoCSS。更多详情请查阅 [Package README](https://github.com/cworld1/astro-theme-pure/blob/main/packages/pure/README.md#use-with-common-astro-project)。
-
-- 基础组件：`Aside`、`Tabs`、`Timeline`、`Steps`、`Spoiler`...
-- 高级组件：`GithubCard`、`LinkPreview`、`Quote`、`QRCode`...
-
-## :white_check_mark: Lighthouse 分数
-
-[![lighthouse-score](./.github/assets/lighthouse-score.png)](https://pagespeed.web.dev/analysis/https-cworld-top/o229zrt5o4?form_factor=mobile&hl=en)
-
-## 文档
-
-[文档](https://astro-pure.js.org/docs) | [展示台](https://github.com/cworld1/astro-theme-pure/issues/10)
-
-## NPM 包
-
-在 NPM 上查看：[astro-theme-pure](https://www.npmjs.com/package/astro-pure)
-
-## 快速开始
-
-### 环境要求
-
-> [!WARNING]
-> Astro 6.0+ 要求 Node.js v22.12.0 或更高版本。Astro 不支持奇数版本的 Node.js，例如 v23。
-
-你可以选择以下任一方式进行项目开发：
-
-- [Bun](https://bun.com/get)
-- [Node.js](https://nodejs.org/zh-cn)
-
-对于使用容器化部署如 [Docker](https://docs.docker.com/get-started/get-docker) & [Docker Compose](https://docs.docker.com/compose/install)，请参考文档 [Docker Compose](https://astro-pure.js.org/docs/setup/using-docker-compose)。
-
-### 获取代码与配置
-
-1. 克隆仓库并进入目录：
-
-   ```shell
-   git clone https://github.com/cworld1/astro-theme-pure.git
-   cd astro-theme-pure
-   ```
-
-   编辑 `src/site.config.ts` 以个性化站点。
-
-2. 安装依赖：
-
-   ```shell
-   # 安装项目依赖
-   bun install
-   ```
-
-3. 启动开发服务器：
-
-   ```shell
-   bun dev
-   # 或
-   pnpm dev
-   # 或
-   yarn run dev
-   # 或
-   npm run dev
-   ```
-
-   开发服务器默认运行在 <http://localhost:4321>。
-
-### 创建新的博客文章
-
-完成任一开发环境的设置后，您可以创建一篇新的博客文章：
-
-```shell
-bun pure new
+```
+astro.config.ts        渲染方式（server）、适配器、字体、Markdown / shiki 配置
+src/
+  site.config.ts       站点信息：标题、导航、页脚、评论、分享、引用
+  content.config.ts    blog / docs 两个内容集合的 schema
+  content/blog/        博客文章，一篇一个目录（<slug>/index.md）
+  content/docs/        文档中心（docker / nginx / guide 三组）
+  pages/               路由：页面与 API，prerender 在每个文件里选边
+  layouts/             页面骨架
+  components/          站内组件（home / projects / about …）
+  plugins/             本仓库的 rehype / shiki 定制
+packages/pure/         主题集成包的本地副本，参与构建（见其 README）
+templates/post.md      新文章模板，scripts/new-post.sh 使用
+compose.yml            生产服务定义
+compose.dev.yml        本地开发编排（dev / build / preview / new）
+Dockerfile             三阶段构建
+preset/                上游附带的图标与示例组件，不参与构建
 ```
 
-## 部署
+## 本地开发（compose.dev.yml）
 
-### 手动部署
+宿主机不装 Node / Bun，开发也在容器里做。四个 profile：
 
-构建生产站点到 `./dist` 目录：
+| profile | 作用 |
+|---|---|
+| `dev` | 挂载源码热更新（4321），写作期间最常用 |
+| `build` | 只构建，并把 `dist/` 导出到宿主机 |
+| `preview` | 构建成功后用 `astro preview` 预览生产产物 |
+| `new` | 容器里跑 `astro-pure new` 生成文章 |
 
-```shell
-bun run build
+写作期间起 dev（`-u` 不能省，原因与故障排查见根 README「写作时用 dev 模式」）：
+
+```bash
+docker compose -f compose.dev.yml --profile dev run --rm --service-ports \
+  -u "$(id -u):$(id -g)" dev
 ```
 
-构建完成后，生成的静态文件将位于 `./dist` 目录中，你可以将该目录部署到支持静态网站托管的平台。
+注意 4321 是 Vite 开发服务器，样式靠 JS 注入，与 80 端口的生产形态有观感差异；
+写完 Ctrl-C，回仓库根目录 `docker compose up -d --build site` 做最终验证。
+其余 profile 的命令见 `compose.dev.yml` 开头注释。
 
-本地预览构建结果：
+## 生产
 
-```shell
-bun preview
+```bash
+# 仓库根目录执行
+docker compose up -d --build site     # 改了本目录任何东西后的标准动作
+./scripts/preview.sh                  # 同上，并等首页返回 200 再打印地址
 ```
 
-### 静态托管平台
+镜像三阶段构建（bun 构建 → 只装生产依赖 → `node:22-slim` 运行、非 root），
+`dist/client` 与 `dist/server` 两份产物都进镜像，细节见 `Dockerfile` 注释。
+容器只挂 `web-net`、不映射端口，healthcheck 打自己的 `/healthz`。
 
-你可以将你的博客部署到任意静态网站托管平台。
+## 网页宠物（dafeiyu）
 
-- 参考官方 [Astro 部署指南](https://docs.astro.build/zh-cn/guides/deploy/) 了解具体的部署方式。
-- 根据所选择的部署平台，你可能需要修改项目中的 `astro.config.ts` 配置文件。
+全站常驻的「大肥鱼」宠物：右下角一只透明视频小女仆（鲸鱼尾），会待机、走动、
+说台词，能点击互动、拎起来抛出去。实现是独立 npm 包
+[`dafeiyu`](../../dafeiyu/README.md)（本仓库的 sibling 目录），**站点用构建产物消费**——
+与未来 CDN 用户一行 `<script>` 的接入方式完全一致。
 
-|                                                                       Vercel                                                                        |                                                                             Netlify                                                                             |
-| :-------------------------------------------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------: |
-| [![使用 Vercel 部署](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fcworld1%2Fastro-theme-pure) | [![部署到 Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/cworld1/astro-theme-pure) |
+- 产物与素材在 `public/pet/`，由 dafeiyu 仓库的 `scripts/sync-to-site.sh` 同步，
+  更新宠物行为 = 在 dafeiyu 改代码 → `npm run build` → 跑 sync 脚本 → 重建本站
+- 挂载点是 `src/components/pet/SitePet.astro`（两行 `<script is:inline>` + 站点台词），
+  由 `BaseLayout.astro` 全站引入；Shadow DOM 隔离，不与主题样式互相污染
+- 素材（14 段透明视频）来自 [dsh-pet](https://github.com/PC2005-cloud/dsh-pet)（MIT），
+  Safari 用同名 `.mov`（HEVC-alpha）兜底，还没就绪前 Safari 不显示宠物
+- 移动端（<768px）默认隐藏；`prefers-reduced-motion` 时静止
+- AI 已接：`endpoints` 指向本站 `/api/pet/whisper`、`/api/pet/chat`（`src/pages/api/pet/`），
+  服务端调 DeepSeek，密钥经仓库根 `.env` → compose 注入 `DEEPSEEK_API_KEY`（见根 README 快速开始 2b）。
+  碎碎念带时间背景（工作日/周末/时段），聊天 SSE 流式（`X-Accel-Buffering: no` 过 nginx 不用改配置）；
+  per-IP 限流 + 全局日限封顶费用，未配 key 或调用失败自动降级本地台词池
+- 双击宠物打开聊天面板（历史 5 轮存 localStorage），Enter 发送
 
+## 写作速记
 
-## 贡献
+完整说明与示例见根 README「写内容、加页面、加 API」，三条最容易踩的：
 
-为了花更多时间编写代码，减少在空白上纠结的时间，本项目使用代码约定和样式来鼓励一致性。风格一致的代码更容易（且更不容易出错）进行审查、维护和理解。
+- 新文章用根目录 `./scripts/new-post.sh <slug> "标题"` 生成，默认 `draft: true`
+- `title` ≤ 60 字、`description` ≤ 160 字，超了被 schema 拒绝、构建直接失败
+- `output: 'server'` 下新页面**不写 `prerender` 就是动态的**，每个请求都跑一遍渲染；
+  主题的列表 / 文章 / 标签页已写死 `prerender = true`
 
-## 鸣谢
+## 许可
 
-- [Astro Cactus](https://github.com/chrismwilliams/astro-theme-cactus)
-- [Astro Resume](https://github.com/srleom/astro-theme-resume)
-- [Starlight](https://github.com/withastro/starlight)
-
-其他第三方参考资料在 [Docs#Contributions](https://astro-pure.js.org/docs/advanced/about) 上。感谢所有开源库。
-
-## 许可证
-
-本项目基于 Apache 2.0 许可证。
-
-[![Star History Chart](https://star-history.dera.page/svg?repos=cworld1/astro-theme-pure&type=Date)](https://star-history.dera.page/#cworld1/astro-theme-pure&Date)
+上游 Apache 2.0，作者 CWorld；本目录保留原 `LICENSE`。

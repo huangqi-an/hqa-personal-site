@@ -1,0 +1,1271 @@
+"use strict";
+var Dafeiyu = (() => {
+  var __defProp = Object.defineProperty;
+  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+  var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __export = (target, all) => {
+    for (var name in all)
+      __defProp(target, name, { get: all[name], enumerable: true });
+  };
+  var __copyProps = (to, from, except, desc) => {
+    if (from && typeof from === "object" || typeof from === "function") {
+      for (let key of __getOwnPropNames(from))
+        if (!__hasOwnProp.call(to, key) && key !== except)
+          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+    }
+    return to;
+  };
+  var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+  // src/index.ts
+  var index_exports = {};
+  __export(index_exports, {
+    default: () => index_default,
+    mount: () => mount
+  });
+
+  // src/anims.ts
+  var ANIMS = [
+    "idle-breathing",
+    "idle-humming",
+    "idle-looking",
+    "idle-yawn",
+    "sleep-snooze",
+    "wake-startled",
+    "click-happy",
+    "click-wave",
+    "click-annoyed",
+    "drag-startled",
+    "talk-screen",
+    "talk-thinking",
+    "walk-crab",
+    "rare-whale"
+  ];
+  function isAnimName(v) {
+    return ANIMS.includes(v);
+  }
+  var LOOPING = /* @__PURE__ */ new Set([
+    "idle-breathing",
+    "sleep-snooze",
+    "talk-screen",
+    "talk-thinking"
+  ]);
+  var IDLE_POOL = ["idle-breathing", "idle-humming", "idle-looking", "idle-yawn"];
+  var CLICK_POOL = ["click-happy", "click-wave"];
+
+  // src/config.ts
+  var DEFAULTS = {
+    assetBase: "https://cdn.jsdelivr.net/npm/dafeiyu/assets/",
+    // 素材是 16:9 画幅、角色只占画面中段，宽度给足角色才有存在感
+    size: 240,
+    zIndex: 9999,
+    whisperIntervalSec: 120,
+    enabledOnMobile: false
+  };
+  var BUILTIN_LINES = [
+    "\u5495\u565C\u5495\u565C\uFF5E",
+    "\u8FD9\u7247\u7F51\u9875\u7684\u6C34\u8D28\u4E0D\u9519\u3002",
+    "\u4F60\u4ECA\u5929\u559D\u6C34\u4E86\u5417\uFF1F",
+    "\u6478\u9C7C\u8981\u9002\u5EA6\u54E6\u3002",
+    "\u55EF\uFF1F\u5728\u770B\u6211\uFF1F",
+    "\u542C\u8BF4\u65E9\u7761\u7684\u4EBA\u8FD0\u6C14\u4E0D\u4F1A\u592A\u5DEE\u3002",
+    "\u4EE3\u7801\u5199\u5B8C\u4E86\u5417\uFF1F\u6CA1\u5199\u5B8C\u4E5F\u6CA1\u4E8B\u3002",
+    "\u98CE\u5E73\u6D6A\u9759\uFF0C\u9002\u5408\u53D1\u5446\u3002",
+    "\u8981\u4E0D\u8981\u4F11\u606F\u4E00\u4E0B\u773C\u775B\uFF1F",
+    "\u6211\u662F\u4E00\u6761\u6709\u68A6\u60F3\u7684\u9C7C\u3002",
+    "\u8FD9\u4E2A bug \u80AF\u5B9A\u4E0D\u602A\u4F60\u3002",
+    "\u6084\u6084\u5192\u4E2A\u6CE1\u3002",
+    "\u6DF1\u6C34\u533A\u7981\u6B62\u55A7\u54D7\u3002",
+    "\u4ECA\u5929\u4E5F\u662F\u5143\u6C14\u6EE1\u6EE1\u7684\u4E00\u5929\u3002",
+    "\u522B\u5237\u4E86\uFF0C\u53BB\u770B\u70B9\u957F\u6587\u7AE0\u5427\u3002",
+    "\u6709\u70B9\u56F0\u2026\u2026\u5148\u772F\u4E00\u4F1A\u513F\u3002",
+    "\u9CB8\u9C7C\u662F\u6211\u8FDC\u623F\u4EB2\u621A\uFF0C\u522B\u63D0\u4E86\u3002",
+    "\u4F60\u56DE\u6765\u5566\u3002",
+    "\u6162\u6162\u6765\uFF0C\u6BD4\u8F83\u5FEB\u3002",
+    "\u9875\u9762\u52A0\u8F7D\u5F97\u8FD8\u987A\u6ED1\u5417\uFF1F",
+    "\u5468\u4E94\u7684\u4E0B\u5348\u6700\u6F2B\u957F\u3002",
+    "\u6DF1\u6D77\u4FE1\u53F7\u4E0D\u597D\uFF0C\u518D\u8BF4\u4E00\u904D\uFF1F",
+    "\uFF08\u5410\u4E86\u4E00\u4E32\u6CE1\u6CE1\uFF09",
+    "\u503C\u73ED\u4E2D\uFF0C\u6709\u4E8B\u6233\u6211\u3002"
+  ];
+
+  // src/bubble.ts
+  var Bubble = class {
+    constructor(shadow) {
+      this.hideTimer = 0;
+      this.visible = false;
+      this.el = document.createElement("div");
+      const s = this.el.style;
+      s.position = "absolute";
+      s.left = "50%";
+      s.bottom = "calc(100% + 12px)";
+      s.transform = "translateX(-50%) translateY(4px)";
+      s.maxWidth = "230px";
+      s.padding = "8px 12px";
+      s.borderRadius = "12px";
+      s.background = "rgba(32, 34, 40, 0.92)";
+      s.border = "1px solid rgba(255, 255, 255, 0.14)";
+      s.color = "#f2f3f5";
+      s.font = '13px/1.55 system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif';
+      s.textAlign = "center";
+      s.wordBreak = "break-word";
+      s.boxShadow = "0 4px 16px rgba(0, 0, 0, 0.18)";
+      s.opacity = "0";
+      s.transition = "opacity 0.25s, transform 0.25s";
+      s.pointerEvents = "none";
+      s.whiteSpace = "normal";
+      const tail = document.createElement("style");
+      tail.textContent = `
+      .dfy-bubble::after {
+        content: '';
+        position: absolute;
+        left: 50%;
+        top: 100%;
+        transform: translateX(-50%);
+        border: 6px solid transparent;
+        border-top-color: rgba(32, 34, 40, 0.92);
+      }
+    `;
+      shadow.appendChild(tail);
+      this.el.className = "dfy-bubble";
+      shadow.appendChild(this.el);
+    }
+    /** 显示一句话；durationMs 后自动隐藏。宠物贴近视口顶部时翻到下方 */
+    say(text, durationMs = 1e4, flipBelow = false) {
+      this.el.textContent = text;
+      this.el.style.bottom = flipBelow ? "auto" : "calc(100% + 12px)";
+      this.el.style.top = flipBelow ? "calc(100% + 12px)" : "auto";
+      this.el.style.opacity = "1";
+      this.el.style.transform = "translateX(-50%) translateY(0)";
+      this.visible = true;
+      window.clearTimeout(this.hideTimer);
+      this.hideTimer = window.setTimeout(() => this.hide(), durationMs);
+    }
+    hide() {
+      if (!this.visible) return;
+      this.visible = false;
+      window.clearTimeout(this.hideTimer);
+      this.el.style.opacity = "0";
+      this.el.style.transform = "translateX(-50%) translateY(4px)";
+    }
+    destroy() {
+      window.clearTimeout(this.hideTimer);
+      this.el.remove();
+    }
+  };
+
+  // src/chat.ts
+  var PANEL_STYLE = `
+  .dfy-chat {
+    position: absolute;
+    bottom: calc(100% + 12px);
+    left: 0;
+    width: 288px;
+    max-width: calc(100vw - 24px);
+    display: flex;
+    flex-direction: column;
+    border-radius: 14px;
+    background: rgba(32, 34, 40, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.22);
+    color: #f2f3f5;
+    font: 13px/1.6 system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity .2s, transform .2s;
+    pointer-events: auto;
+  }
+  .dfy-chat.dfy-open { opacity: 1; transform: translateY(0); }
+  .dfy-chat-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,.1);
+  }
+  .dfy-chat-close {
+    border: 0; background: none; color: inherit; font-size: 15px;
+    cursor: pointer; padding: 0 4px; line-height: 1; opacity: .7;
+  }
+  .dfy-chat-close:hover { opacity: 1; }
+  .dfy-chat-list {
+    max-height: 240px; min-height: 60px; overflow-y: auto;
+    padding: 10px 12px; display: flex; flex-direction: column; gap: 8px;
+  }
+  .dfy-msg { padding: 6px 10px; border-radius: 10px; max-width: 86%; word-break: break-word; white-space: pre-wrap; }
+  .dfy-msg-user { align-self: flex-end; background: #3b6ea5; color: #fff; }
+  .dfy-msg-bot { align-self: flex-start; background: rgba(255,255,255,.1); }
+  .dfy-msg-err { align-self: center; color: #b9bcc4; font-size: 12px; background: none; padding: 2px; }
+  .dfy-chat-input { display: flex; gap: 8px; padding: 8px 10px 10px; border-top: 1px solid rgba(255,255,255,.1); }
+  .dfy-chat-input input {
+    flex: 1; min-width: 0; border-radius: 8px; border: 1px solid rgba(255,255,255,.18);
+    background: rgba(255,255,255,.08); color: inherit; font: inherit; padding: 5px 10px; outline: none;
+  }
+  .dfy-chat-input input:focus { border-color: rgba(255,255,255,.4); }
+  .dfy-chat-input button {
+    border: 0; border-radius: 8px; background: #3b6ea5; color: #fff;
+    font: inherit; padding: 5px 12px; cursor: pointer;
+  }
+  .dfy-chat-input button:disabled { opacity: .5; cursor: default; }
+`;
+  var ChatPanel = class {
+    constructor(shadow, handlers) {
+      this.sending = false;
+      this.openState = false;
+      this.onSend = handlers.onSend;
+      this.onClose = handlers.onClose;
+      const style = document.createElement("style");
+      style.textContent = PANEL_STYLE;
+      shadow.appendChild(style);
+      this.root = document.createElement("div");
+      this.root.className = "dfy-chat";
+      this.root.style.display = "none";
+      const head = document.createElement("div");
+      head.className = "dfy-chat-head";
+      head.textContent = "\u548C\u5927\u80A5\u9C7C\u804A\u804A";
+      const close = document.createElement("button");
+      close.className = "dfy-chat-close";
+      close.textContent = "\xD7";
+      close.setAttribute("aria-label", "\u5173\u95ED\u804A\u5929");
+      close.addEventListener("click", () => this.close());
+      head.appendChild(close);
+      this.list = document.createElement("div");
+      this.list.className = "dfy-chat-list";
+      const tip = document.createElement("div");
+      tip.className = "dfy-msg dfy-msg-err";
+      tip.textContent = "\u53CC\u51FB\u9C7C\u4E5F\u80FD\u6253\u5F00/\u5173\u95ED";
+      this.list.appendChild(tip);
+      this.input = document.createElement("input");
+      this.input.type = "text";
+      this.input.placeholder = "\u8BF4\u70B9\u4EC0\u4E48\u2026\uFF08Enter \u53D1\u9001\uFF09";
+      this.input.maxLength = 500;
+      this.input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") this.submit();
+        if (e.key === "Escape") this.close();
+        e.stopPropagation();
+      });
+      this.sendBtn = document.createElement("button");
+      this.sendBtn.textContent = "\u53D1\u9001";
+      this.sendBtn.addEventListener("click", () => this.submit());
+      const row = document.createElement("div");
+      row.className = "dfy-chat-input";
+      row.append(this.input, this.sendBtn);
+      this.root.append(head, this.list, row);
+      shadow.appendChild(this.root);
+    }
+    get isOpen() {
+      return this.openState;
+    }
+    open() {
+      this.openState = true;
+      this.root.style.display = "flex";
+      requestAnimationFrame(() => this.root.classList.add("dfy-open"));
+      this.clampIntoViewport();
+      this.input.focus();
+    }
+    close() {
+      if (!this.openState) return;
+      this.openState = false;
+      this.root.classList.remove("dfy-open");
+      window.setTimeout(() => {
+        if (!this.openState) this.root.style.display = "none";
+      }, 220);
+      this.onClose();
+    }
+    /** 面板贴着宠物，宠物贴着视口左/右缘时把面板水平拉回视口内 */
+    clampIntoViewport() {
+      this.root.style.marginLeft = "0";
+      const r = this.root.getBoundingClientRect();
+      const vw = window.innerWidth;
+      let shift = 0;
+      if (r.left < 8) shift = 8 - r.left;
+      else if (r.right > vw - 8) shift = vw - 8 - r.right;
+      if (shift !== 0) this.root.style.marginLeft = `${shift}px`;
+    }
+    submit() {
+      const text = this.input.value.trim();
+      if (!text || this.sending) return;
+      this.input.value = "";
+      this.onSend(text);
+    }
+    setSending(v) {
+      this.sending = v;
+      this.sendBtn.disabled = v;
+      this.input.disabled = v;
+      if (!v) this.input.focus();
+    }
+    addUser(text) {
+      this.appendMsg("dfy-msg-user", text);
+    }
+    /** 一次性提示（错误/降级说明），不进对话流样式 */
+    addNote(text) {
+      this.appendMsg("dfy-msg-err", text);
+    }
+    startAssistant() {
+      const el = this.appendMsg("dfy-msg-bot", "");
+      const scroll = () => this.list.scrollTop = this.list.scrollHeight;
+      return {
+        push: (delta) => {
+          el.textContent += delta;
+          scroll();
+        },
+        done: () => {
+          if (!el.textContent) el.textContent = "\u2026";
+          scroll();
+        },
+        error: (msg) => {
+          el.className = "dfy-msg dfy-msg-err";
+          el.textContent = msg;
+          scroll();
+        }
+      };
+    }
+    appendMsg(cls, text) {
+      const el = document.createElement("div");
+      el.className = `dfy-msg ${cls}`;
+      el.textContent = text;
+      this.list.appendChild(el);
+      this.list.scrollTop = this.list.scrollHeight;
+      return el;
+    }
+  };
+  function streamChat(url, messages, handlers, timeoutMs = 6e4) {
+    const ctrl = new AbortController();
+    const timer = window.setTimeout(() => ctrl.abort(), timeoutMs);
+    const fail = (msg) => {
+      window.clearTimeout(timer);
+      handlers.onError(msg);
+    };
+    fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ messages }),
+      signal: ctrl.signal
+    }).then(async (res) => {
+      if (!res.ok || !res.body) {
+        let msg = `\u8FDE\u63A5\u4E0D\u4E0A\u5927\u80A5\u9C7C\uFF08${res.status}\uFF09`;
+        try {
+          const data = await res.json();
+          if (typeof data.message === "string") msg = data.message;
+        } catch {
+        }
+        fail(msg);
+        return;
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      for (; ; ) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let idx;
+        while ((idx = buf.indexOf("\n\n")) >= 0) {
+          const block = buf.slice(0, idx);
+          buf = buf.slice(idx + 2);
+          for (const line of block.split("\n")) {
+            if (!line.startsWith("data:")) continue;
+            const payload = line.slice(5).trim();
+            if (payload === "[DONE]") {
+              window.clearTimeout(timer);
+              handlers.onDone();
+              return;
+            }
+            try {
+              const evt = JSON.parse(payload);
+              if (typeof evt.e === "string") {
+                fail(evt.e);
+                return;
+              }
+              if (typeof evt.d === "string") handlers.onDelta(evt.d);
+            } catch {
+            }
+          }
+        }
+      }
+      window.clearTimeout(timer);
+      handlers.onDone();
+    }).catch(() => fail("\u5927\u80A5\u9C7C\u8D70\u795E\u4E86\uFF0C\u7A0D\u540E\u518D\u8BD5"));
+    return ctrl;
+  }
+
+  // src/physics.ts
+  var DRAG_THRESHOLD_PX = 6;
+  var SAMPLE_WINDOW_MS = 100;
+  var GRAVITY = 22e-4;
+  var AIR_DRAG = 0.9995;
+  var WALL_BOUNCE = 0.6;
+  var FLOOR_BOUNCE = 0.45;
+  var FLOOR_FRICTION = 0.85;
+  var REST_SPEED = 0.03;
+  function attachDrag(el, h) {
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let lastX = 0;
+    let lastY = 0;
+    let samples = [];
+    let pid = -1;
+    const onDown = (e) => {
+      if (e.button !== void 0 && e.button !== 0) return;
+      pid = e.pointerId;
+      startX = lastX = e.clientX;
+      startY = lastY = e.clientY;
+      samples = [{ t: performance.now(), x: startX, y: startY }];
+      dragging = false;
+      el.setPointerCapture(pid);
+      el.addEventListener("pointermove", onMove);
+      el.addEventListener("pointerup", onUp);
+      el.addEventListener("pointercancel", onUp);
+      h.onGrab(startX, startY);
+    };
+    const onMove = (e) => {
+      if (e.pointerId !== pid) return;
+      const x = e.clientX;
+      const y = e.clientY;
+      if (!dragging) {
+        if (Math.hypot(x - startX, y - startY) < DRAG_THRESHOLD_PX) return;
+        dragging = true;
+      }
+      lastX = x;
+      lastY = y;
+      const now = performance.now();
+      samples.push({ t: now, x, y });
+      while (samples.length > 2 && now - samples[0].t > SAMPLE_WINDOW_MS) samples.shift();
+      h.onDragMove(x, y);
+    };
+    const onUp = (e) => {
+      if (e.pointerId !== pid) return;
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerup", onUp);
+      el.removeEventListener("pointercancel", onUp);
+      try {
+        el.releasePointerCapture(pid);
+      } catch {
+      }
+      pid = -1;
+      if (!dragging) {
+        h.onClick();
+        return;
+      }
+      const now = performance.now();
+      samples.push({ t: now, x: lastX, y: lastY });
+      const first = samples[0];
+      const dt = Math.max(now - first.t, 1);
+      h.onRelease((lastX - first.x) / dt, (lastY - first.y) / dt);
+    };
+    el.addEventListener("pointerdown", onDown);
+    return () => {
+      el.removeEventListener("pointerdown", onDown);
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerup", onUp);
+      el.removeEventListener("pointercancel", onUp);
+    };
+  }
+  function startFlight(o) {
+    let x = o.x;
+    let y = o.y;
+    let vx = o.vx;
+    let vy = o.vy;
+    let raf = 0;
+    let last = performance.now();
+    let stillFrames = 0;
+    const step = (now) => {
+      const dt = Math.min(now - last, 32);
+      last = now;
+      const { vw, vh, w, h } = o.bounds();
+      vy += GRAVITY * dt;
+      vx *= Math.pow(AIR_DRAG, dt);
+      x += vx * dt;
+      y += vy * dt;
+      if (x < 0) {
+        x = 0;
+        vx = -vx * WALL_BOUNCE;
+      } else if (x > vw - w) {
+        x = vw - w;
+        vx = -vx * WALL_BOUNCE;
+      }
+      if (y < 0) {
+        y = 0;
+        vy = -vy * WALL_BOUNCE;
+      } else if (y > vh - h) {
+        y = vh - h;
+        vy = -vy * FLOOR_BOUNCE;
+        vx *= FLOOR_FRICTION;
+        if (Math.abs(vy) < REST_SPEED) vy = 0;
+      }
+      o.onStep(x, y);
+      const speed = Math.hypot(vx, vy);
+      if (speed < REST_SPEED && y >= vh - h - 1) {
+        if (++stillFrames >= 3) {
+          o.onRest(x, y);
+          return;
+        }
+      } else {
+        stillFrames = 0;
+      }
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }
+
+  // src/player.ts
+  function prefersMov() {
+    const ua = navigator.userAgent;
+    if (/Chrome|Chromium|Edg|OPR|Firefox|FxiOS/i.test(ua)) return false;
+    return /Mac/i.test(navigator.platform || ua);
+  }
+  var LOAD_TIMEOUT_MS = 1e4;
+  var Player = class {
+    constructor(video, assetBase) {
+      /** 加载失败（404 / 解码错误）的动画，调度器应将其从池中剔除 */
+      this.unavailable = /* @__PURE__ */ new Set();
+      this.token = 0;
+      this.currentName = null;
+      this.video = video;
+      this.assetBase = assetBase.endsWith("/") ? assetBase : assetBase + "/";
+      this.ext = prefersMov() ? ".mov" : ".webm";
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = "none";
+      video.setAttribute("muted", "");
+      video.setAttribute("aria-hidden", "true");
+      video.addEventListener("error", () => {
+        if (this.currentName) this.unavailable.add(this.currentName);
+      });
+    }
+    url(name) {
+      return `${this.assetBase}${name}${this.ext}`;
+    }
+    get playing() {
+      return this.currentName;
+    }
+    /** 换源播放。resolve false 表示加载失败（已记入黑名单），调用方应换动画 */
+    async play(name, loop) {
+      const token = ++this.token;
+      const url = this.url(name);
+      const abs = new URL(url, location.href).href;
+      if (this.currentName === name && loop && this.video.loop && !this.video.ended) {
+        void this.video.play().catch(() => {
+        });
+        return true;
+      }
+      this.currentName = name;
+      this.video.loop = loop;
+      this.video.src = url;
+      this.video.load();
+      const ok = await new Promise((resolve) => {
+        const timer = window.setTimeout(() => resolve(false), LOAD_TIMEOUT_MS);
+        const done = (v) => {
+          window.clearTimeout(timer);
+          this.video.removeEventListener("loadeddata", onData);
+          this.video.removeEventListener("error", onError);
+          resolve(v);
+        };
+        const onData = () => done(true);
+        const onError = () => done(false);
+        this.video.addEventListener("loadeddata", onData, { once: true });
+        this.video.addEventListener("error", onError, { once: true });
+      });
+      if (token !== this.token) return false;
+      if (!ok) {
+        this.unavailable.add(name);
+        return false;
+      }
+      try {
+        await this.video.play();
+      } catch {
+      }
+      return token === this.token;
+    }
+    /**
+     * 播一遍并在 ended 时 resolve；加载失败立即 resolve false。
+     * 不做 token 检查：被更新的播放取代时，这个 promise 可能晚 Resolve 或
+     * 被后来者的 ended 提前 Resolve——调用方（pet.ts）有自己的状态代次守卫。
+     */
+    async playOnce(name) {
+      const started = await this.play(name, false);
+      if (!started) return false;
+      return await new Promise((resolve) => {
+        const duration = (this.video.duration || 12) * 1e3 + 2e3;
+        const timer = window.setTimeout(() => finish(true), duration);
+        const finish = (v) => {
+          window.clearTimeout(timer);
+          this.video.removeEventListener("ended", onEnd);
+          this.video.removeEventListener("error", onErr);
+          resolve(v);
+        };
+        const onEnd = () => finish(true);
+        const onErr = () => finish(false);
+        this.video.addEventListener("ended", onEnd, { once: true });
+        this.video.addEventListener("error", onErr, { once: true });
+      });
+    }
+    pause() {
+      this.video.pause();
+    }
+    /** 朝向翻转（水平镜像），漫游向左走时用 */
+    setMirror(faceLeft) {
+      this.video.style.transform = faceLeft ? "scaleX(-1)" : "";
+    }
+    get el() {
+      return this.video;
+    }
+  };
+
+  // src/pet.ts
+  var MOBILE_QUERY = "(max-width: 767px)";
+  var POS_KEY = "dafeiyu:pos";
+  var MARGIN = 16;
+  var IDLE_STAY_MS = [8e3, 15e3];
+  var SLEEP_AFTER_MS = 5 * 60 * 1e3;
+  var ACTIVITY_CHECK_MS = 10 * 1e3;
+  var START_DELAY_MS = 30 * 1e3;
+  var COMBO_WINDOW_MS = 3e3;
+  var COMBO_ANGRY = 5;
+  var THROW_SPEED = 0.5;
+  var RARE_CHANCE = 0.02;
+  var WANDER_CHANCE = 0.08;
+  var BUBBLE_MS = 1e4;
+  var CHAT_HISTORY_KEY = "dafeiyu:chat-history";
+  var CHAT_MAX_ITEMS = 10;
+  var ASPECT_H = 9 / 16;
+  function rand(min, max) {
+    return min + Math.random() * (max - min);
+  }
+  function trimHistory(list) {
+    return list.slice(-CHAT_MAX_ITEMS).map((m) => ({ role: m.role, content: m.content.slice(0, 500) }));
+  }
+  var Pet = class _Pet {
+    constructor(options = {}) {
+      this.x = 0;
+      this.y = 0;
+      this.h = 0;
+      this.state = "idle";
+      this.stateToken = 0;
+      this.lastIdle = null;
+      this.lastLine = "";
+      this.timers = /* @__PURE__ */ new Set();
+      this.wanderRaf = 0;
+      this.flightCancel = null;
+      this.detachDrag = null;
+      this.lastActivity = Date.now();
+      this.started = false;
+      this.combo = 0;
+      this.comboAt = 0;
+      this.dead = false;
+      this.chatPanel = null;
+      this.chatOpen = false;
+      this.chatHistory = [];
+      this.chatAbort = null;
+      this.onActivity = () => {
+        this.lastActivity = Date.now();
+        this.started = true;
+      };
+      this.onVisibility = () => {
+        if (document.hidden) this.suspend();
+        else this.resume();
+      };
+      this.onResize = () => {
+        this.clampIntoViewport();
+        this.applyTransform();
+      };
+      // ── 拖拽与点击 ────────────────────────────────────────────────
+      this.grabOffX = 0;
+      this.grabOffY = 0;
+      this.dragging = false;
+      var _a, _b, _c;
+      (_a = _Pet.current) == null ? void 0 : _a.destroy();
+      _Pet.current = this;
+      this.opts = { ...DEFAULTS, ...options };
+      this.extraLines = (_b = options.lines) != null ? _b : [];
+      this.endpoints = options.endpoints;
+      this.reduced = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (!this.opts.enabledOnMobile && matchMedia(MOBILE_QUERY).matches) {
+        this.dead = true;
+        return;
+      }
+      this.buildDom();
+      this.restorePosition();
+      this.player = new Player(this.video, this.opts.assetBase);
+      this.bubble = new Bubble(this.shadow);
+      this.detachDrag = attachDrag(this.video, {
+        onGrab: (px, py) => {
+          this.grabOffX = px - this.x;
+          this.grabOffY = py - this.y;
+        },
+        onDragMove: (px, py) => this.handleDragMove(px, py),
+        onRelease: (vx, vy) => this.handleRelease(vx, vy),
+        onClick: () => this.handleClick()
+      });
+      if ((_c = this.endpoints) == null ? void 0 : _c.chat) {
+        this.chatPanel = new ChatPanel(this.shadow, {
+          onSend: (text) => this.sendChat(text),
+          onClose: () => this.closeChat()
+        });
+        this.chatHistory = this.loadHistory();
+        this.video.addEventListener(
+          "dblclick",
+          () => this.chatOpen ? this.closeChat() : this.openChat()
+        );
+      }
+      document.addEventListener("pointerdown", this.onActivity, { passive: true, capture: true });
+      document.addEventListener("keydown", this.onActivity, { passive: true, capture: true });
+      document.addEventListener("visibilitychange", this.onVisibility);
+      window.addEventListener("resize", this.onResize);
+      if (this.reduced) {
+        void this.player.play("idle-breathing", true).then(() => this.player.pause());
+        return;
+      }
+      void this.player.play("idle-breathing", true).then((ok) => {
+        if (!ok) {
+          console.warn("[dafeiyu] \u4E3B\u5F85\u673A\u52A8\u753B\u52A0\u8F7D\u5931\u8D25\uFF0C\u5BA0\u7269\u9000\u51FA\u3002\u68C0\u67E5 assetBase \u662F\u5426\u6B63\u786E");
+          this.destroy();
+          return;
+        }
+        this.h = this.video.getBoundingClientRect().height || this.opts.size * ASPECT_H;
+      });
+      this.setT(() => this.started = true, START_DELAY_MS);
+      this.scheduleIdle(rand(1500, 4e3));
+      this.scheduleWhisper();
+      this.setT(this.checkSleep.bind(this), ACTIVITY_CHECK_MS);
+    }
+    // ── DOM 与位置 ────────────────────────────────────────────────
+    buildDom() {
+      this.host = document.createElement("div");
+      this.host.setAttribute("data-dafeiyu", "");
+      const hs = this.host.style;
+      hs.position = "fixed";
+      hs.left = "0";
+      hs.top = "0";
+      hs.width = `${this.opts.size}px`;
+      hs.zIndex = String(this.opts.zIndex);
+      hs.pointerEvents = "none";
+      hs.contain = "layout style";
+      this.shadow = this.host.attachShadow({ mode: "open" });
+      const style = document.createElement("style");
+      style.textContent = `
+      video {
+        display: block;
+        width: 100%;
+        height: auto;
+        pointer-events: auto;
+        cursor: grab;
+        user-select: none;
+        -webkit-user-drag: none;
+      }
+      video:active { cursor: grabbing; }
+    `;
+      this.shadow.appendChild(style);
+      this.video = document.createElement("video");
+      this.shadow.appendChild(this.video);
+      document.body.appendChild(this.host);
+    }
+    restorePosition() {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const size = this.opts.size;
+      const margin = MARGIN + 4;
+      let nx, ny;
+      const p = this.opts.position;
+      if (p === "bottom-left" || p === "top-left" || p === "bottom-right" || p === "top-right") {
+        nx = p.endsWith("right") ? 1 : 0;
+        ny = p.startsWith("bottom") ? 1 : 0;
+      } else if (p && typeof p.x === "number" && typeof p.y === "number") {
+        nx = p.x;
+        ny = p.y;
+      } else {
+        try {
+          const saved = JSON.parse(localStorage.getItem(POS_KEY) || "null");
+          if (saved && typeof saved.nx === "number" && typeof saved.ny === "number") {
+            nx = saved.nx;
+            ny = saved.ny;
+          } else {
+            nx = 1;
+            ny = 1;
+          }
+        } catch {
+          nx = 1;
+          ny = 1;
+        }
+      }
+      this.x = Math.min(Math.max(nx * vw - size / 2, margin), vw - size - margin);
+      this.y = Math.min(Math.max(ny * vh - this.hPlaceholder() / 2, margin), vh - size * ASPECT_H - margin);
+      this.applyTransform();
+    }
+    hPlaceholder() {
+      return this.h || this.opts.size * ASPECT_H;
+    }
+    applyTransform() {
+      this.host.style.transform = `translate(${Math.round(this.x)}px, ${Math.round(this.y)}px)`;
+    }
+    clampIntoViewport() {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      this.x = Math.min(Math.max(this.x, 4), Math.max(vw - this.opts.size - 4, 4));
+      this.y = Math.min(Math.max(this.y, 4), Math.max(vh - this.hPlaceholder() - 4, 4));
+    }
+    savePos() {
+      try {
+        localStorage.setItem(
+          POS_KEY,
+          JSON.stringify({
+            nx: (this.x + this.opts.size / 2) / window.innerWidth,
+            ny: (this.y + this.hPlaceholder() / 2) / window.innerHeight
+          })
+        );
+      } catch {
+      }
+    }
+    // ── 定时器 ────────────────────────────────────────────────────
+    setT(fn, ms) {
+      const id = window.setTimeout(() => {
+        this.timers.delete(id);
+        fn();
+      }, ms);
+      this.timers.add(id);
+    }
+    clearTimers() {
+      for (const id of this.timers) window.clearTimeout(id);
+      this.timers.clear();
+      if (this.wanderRaf) {
+        cancelAnimationFrame(this.wanderRaf);
+        this.wanderRaf = 0;
+      }
+    }
+    bump() {
+      return ++this.stateToken;
+    }
+    // ── 待机调度 ──────────────────────────────────────────────────
+    scheduleIdle(delayMs) {
+      this.setT(() => this.pickNext(), delayMs);
+    }
+    pickNext() {
+      if (this.dead || this.reduced || this.state !== "idle") return;
+      const r = Math.random();
+      if (r < RARE_CHANCE && !this.player.unavailable.has("rare-whale")) {
+        this.runOnce("rare-whale", "react");
+        return;
+      }
+      if (r < RARE_CHANCE + WANDER_CHANCE && !this.player.unavailable.has("walk-crab")) {
+        this.wander();
+        return;
+      }
+      const name = this.pickIdle();
+      if (!name) return;
+      this.lastIdle = name;
+      if (LOOPING.has(name)) {
+        void this.player.play(name, true).then((ok) => {
+          if (!ok) this.pickNext();
+        });
+        this.scheduleIdle(rand(IDLE_STAY_MS[0], IDLE_STAY_MS[1]));
+      } else {
+        this.runOnce(name, "idle");
+      }
+    }
+    /** 待机池加权随机：呼吸为底，深夜哈欠加权；尽量不与上一段重复 */
+    pickIdle() {
+      let pool = IDLE_POOL.filter((n) => !this.player.unavailable.has(n));
+      if (pool.length > 1 && this.lastIdle) {
+        const filtered = pool.filter((n) => n !== this.lastIdle);
+        if (filtered.length) pool = filtered;
+      }
+      if (!pool.length) return null;
+      const hour = (/* @__PURE__ */ new Date()).getHours();
+      const weight = (n) => {
+        if (n === "idle-breathing") return 3;
+        if (n === "idle-humming") return 1.2;
+        if (n === "idle-looking") return 1;
+        return hour >= 22 || hour < 6 ? 2.2 : 0.5;
+      };
+      const total = pool.reduce((s, n) => s + weight(n), 0);
+      let r = Math.random() * total;
+      for (const n of pool) {
+        r -= weight(n);
+        if (r <= 0) return n;
+      }
+      return pool[pool.length - 1];
+    }
+    /** 播一遍动画然后回到 idle 链；token 防旧链路复活 */
+    async runOnce(name, from) {
+      const token = this.bump();
+      this.state = from === "idle" ? "idle" : from;
+      const ok = await this.player.playOnce(name);
+      if (token !== this.stateToken) return;
+      if (this.state === "drag" || this.state === "fly" || this.dead) return;
+      this.state = "idle";
+      this.scheduleIdle(rand(300, 900));
+    }
+    /** 横向漫游：播走路动画的同时把容器挪一段 */
+    wander() {
+      this.state = "wander";
+      this.bump();
+      const vw = window.innerWidth;
+      const dir = Math.random() < 0.5 ? -1 : 1;
+      const from = this.x;
+      const to = Math.min(Math.max(from + dir * rand(120, 360), MARGIN), vw - this.opts.size - MARGIN);
+      const dur = rand(1500, 3500);
+      const t0 = performance.now();
+      this.player.setMirror(dir < 0);
+      void this.player.play("walk-crab", false);
+      const step = (now) => {
+        if (this.state !== "wander") return;
+        const k = Math.min((now - t0) / dur, 1);
+        const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+        this.x = from + (to - from) * e;
+        this.applyTransform();
+        if (k < 1) {
+          this.wanderRaf = requestAnimationFrame(step);
+        } else {
+          this.wanderRaf = 0;
+          this.player.setMirror(false);
+          this.savePos();
+          this.state = "idle";
+          this.scheduleIdle(rand(300, 900));
+        }
+      };
+      this.wanderRaf = requestAnimationFrame(step);
+    }
+    // ── 睡眠 ──────────────────────────────────────────────────────
+    checkSleep() {
+      if (this.dead) return;
+      if (this.state === "idle" && Date.now() - this.lastActivity > SLEEP_AFTER_MS) {
+        this.state = "sleep";
+        this.bump();
+        void this.player.play("sleep-snooze", true);
+      }
+      this.setT(this.checkSleep.bind(this), ACTIVITY_CHECK_MS);
+    }
+    wake() {
+      this.bubble.hide();
+      void this.runOnce("wake-startled", "react");
+    }
+    // ── 碎碎念 ────────────────────────────────────────────────────
+    scheduleWhisper() {
+      const base = this.opts.whisperIntervalSec * 1e3;
+      this.setT(() => {
+        this.tryWhisper();
+        this.scheduleWhisper();
+      }, base * rand(0.7, 1.3));
+    }
+    async tryWhisper() {
+      var _a;
+      if (this.dead || this.reduced || !this.started || document.hidden) return;
+      if (this.state !== "idle") return;
+      let line = this.pickLine();
+      if ((_a = this.endpoints) == null ? void 0 : _a.whisper) {
+        const remote = await this.fetchWhisper();
+        if (this.dead || this.state !== "idle") return;
+        if (remote) line = remote;
+      }
+      if (!line) return;
+      this.clearTimers();
+      this.state = "talk";
+      this.bump();
+      void this.player.play("talk-screen", true);
+      const ny = (this.y + this.hPlaceholder() / 2) / window.innerHeight;
+      this.bubble.say(line, BUBBLE_MS, ny < 0.28);
+      this.setT(() => {
+        if (this.state === "talk") {
+          this.state = "idle";
+          this.scheduleIdle(rand(300, 900));
+        }
+      }, BUBBLE_MS);
+    }
+    /** 拉一句后端碎碎念；任何失败都返回 null，由本地台词池兜底 */
+    async fetchWhisper() {
+      var _a;
+      const url = (_a = this.endpoints) == null ? void 0 : _a.whisper;
+      if (!url) return null;
+      try {
+        const ctrl = new AbortController();
+        const timer = window.setTimeout(() => ctrl.abort(), 8e3);
+        const res = await fetch(url, { signal: ctrl.signal });
+        window.clearTimeout(timer);
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (typeof (data == null ? void 0 : data.line) === "string") {
+          const t = data.line.trim();
+          if (t && t.length <= 120) return t;
+        }
+        return null;
+      } catch {
+        return null;
+      }
+    }
+    pickLine() {
+      const pool = BUILTIN_LINES.concat(this.extraLines);
+      if (!pool.length) return null;
+      let line = pool[Math.floor(Math.random() * pool.length)];
+      if (pool.length > 1) {
+        for (let i = 0; i < 3 && line === this.lastLine; i++) {
+          line = pool[Math.floor(Math.random() * pool.length)];
+        }
+      }
+      this.lastLine = line;
+      return line;
+    }
+    handleDragMove(px, py) {
+      var _a;
+      if (!this.dragging) {
+        this.dragging = true;
+        this.clearTimers();
+        (_a = this.flightCancel) == null ? void 0 : _a.call(this);
+        this.flightCancel = null;
+        this.state = "drag";
+        this.bump();
+        this.bubble.hide();
+        void this.player.play("drag-startled", false);
+      }
+      this.lastActivity = Date.now();
+      this.x = Math.min(Math.max(px - this.grabOffX, 0), window.innerWidth - this.opts.size);
+      this.y = Math.min(Math.max(py - this.grabOffY, 0), window.innerHeight - this.hPlaceholder());
+      this.applyTransform();
+    }
+    handleRelease(vx, vy) {
+      var _a;
+      this.dragging = false;
+      this.lastActivity = Date.now();
+      const speed = Math.hypot(vx, vy);
+      if (speed > THROW_SPEED) {
+        this.state = "fly";
+        this.bump();
+        (_a = this.flightCancel) == null ? void 0 : _a.call(this);
+        this.flightCancel = startFlight({
+          x: this.x,
+          y: this.y,
+          vx,
+          vy,
+          bounds: () => ({
+            vw: window.innerWidth,
+            vh: window.innerHeight,
+            w: this.opts.size,
+            h: this.hPlaceholder()
+          }),
+          onStep: (x, y) => {
+            this.x = x;
+            this.y = y;
+            this.applyTransform();
+          },
+          onRest: (x, y) => {
+            this.flightCancel = null;
+            this.x = x;
+            this.y = y;
+            this.savePos();
+            if (this.state === "fly") {
+              this.state = "idle";
+              this.scheduleIdle(rand(300, 900));
+            }
+          }
+        });
+      } else {
+        this.savePos();
+        this.state = "idle";
+        this.scheduleIdle(rand(200, 600));
+      }
+    }
+    handleClick() {
+      var _a, _b;
+      this.lastActivity = Date.now();
+      this.started = true;
+      if (this.dead) return;
+      if (this.chatOpen) return;
+      if (this.state === "sleep") {
+        this.wake();
+        return;
+      }
+      this.bubble.hide();
+      const now = Date.now();
+      this.combo = now - this.comboAt < COMBO_WINDOW_MS ? this.combo + 1 : 1;
+      this.comboAt = now;
+      const angry = this.combo >= COMBO_ANGRY;
+      const pool = CLICK_POOL.filter((n) => !this.player.unavailable.has(n));
+      const name = angry ? this.player.unavailable.has("click-annoyed") ? (_a = pool[0]) != null ? _a : null : "click-annoyed" : (_b = pool[Math.floor(Math.random() * pool.length)]) != null ? _b : null;
+      if (name) void this.runOnce(name, "react");
+      if (angry) {
+        this.bubble.say("\u6233\u591F\u4E86\u6CA1\u6709\uFF01", 3e3, false);
+        this.combo = 0;
+      }
+    }
+    // ── 聊天（endpoints.chat 配置后启用）─────────────────────────
+    openChat() {
+      if (this.dead || !this.chatPanel) return;
+      if (!this.chatOpen) {
+        this.chatOpen = true;
+        this.clearTimers();
+        this.state = "talk";
+        this.bump();
+        this.bubble.hide();
+        void this.player.play("talk-screen", true);
+      }
+      this.chatPanel.open();
+    }
+    closeChat() {
+      var _a, _b;
+      if (!this.chatOpen) return;
+      this.chatOpen = false;
+      (_a = this.chatAbort) == null ? void 0 : _a.abort();
+      this.chatAbort = null;
+      (_b = this.chatPanel) == null ? void 0 : _b.close();
+      if (!this.dead && !this.reduced) {
+        this.state = "idle";
+        this.scheduleIdle(rand(300, 900));
+      }
+    }
+    sendChat(text) {
+      var _a;
+      const panel = this.chatPanel;
+      const url = (_a = this.endpoints) == null ? void 0 : _a.chat;
+      if (!panel || !url) return;
+      this.lastActivity = Date.now();
+      panel.addUser(text);
+      panel.setSending(true);
+      void this.player.play("talk-thinking", true);
+      const outgoing = [...this.chatHistory, { role: "user", content: text }];
+      const handle = panel.startAssistant();
+      let acc = "";
+      let firstDelta = true;
+      this.chatAbort = streamChat(url, outgoing, {
+        onDelta: (d) => {
+          if (firstDelta) {
+            firstDelta = false;
+            void this.player.play("talk-screen", true);
+          }
+          acc += d;
+          handle.push(d);
+        },
+        onDone: () => {
+          handle.done();
+          this.chatHistory = trimHistory([...outgoing, { role: "assistant", content: acc || "\u2026" }]);
+          this.saveHistory();
+          panel.setSending(false);
+          this.chatAbort = null;
+        },
+        onError: (msg) => {
+          handle.error(msg);
+          panel.setSending(false);
+          this.chatAbort = null;
+        }
+      });
+    }
+    loadHistory() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(CHAT_HISTORY_KEY) || "[]");
+        if (!Array.isArray(raw)) return [];
+        return trimHistory(
+          raw.filter(
+            (m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string"
+          )
+        );
+      } catch {
+        return [];
+      }
+    }
+    saveHistory() {
+      try {
+        localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(this.chatHistory));
+      } catch {
+      }
+    }
+    // ── 可见性 ────────────────────────────────────────────────────
+    suspend() {
+      var _a;
+      this.clearTimers();
+      (_a = this.flightCancel) == null ? void 0 : _a.call(this);
+      this.flightCancel = null;
+      this.player.pause();
+    }
+    resume() {
+      if (this.dead || this.reduced) return;
+      if (this.chatOpen) {
+        void this.player.play("talk-screen", true);
+        return;
+      }
+      if (this.state === "sleep") {
+        void this.player.play("sleep-snooze", true);
+        this.setT(this.checkSleep.bind(this), ACTIVITY_CHECK_MS);
+        this.scheduleWhisper();
+        return;
+      }
+      if (this.state === "drag") return;
+      this.state = "idle";
+      this.scheduleIdle(200);
+      this.scheduleWhisper();
+      this.setT(this.checkSleep.bind(this), ACTIVITY_CHECK_MS);
+    }
+    // ── 对外（调试/站点调用）与销毁 ───────────────────────────────
+    forceSay(text) {
+      if (this.dead) return;
+      const line = text != null ? text : this.pickLine();
+      if (!line) return;
+      this.clearTimers();
+      this.state = "talk";
+      this.bump();
+      void this.player.play("talk-screen", true);
+      const ny = (this.y + this.hPlaceholder() / 2) / window.innerHeight;
+      this.bubble.say(line, BUBBLE_MS, ny < 0.28);
+      this.setT(() => {
+        if (this.state === "talk") {
+          this.state = "idle";
+          this.scheduleIdle(rand(300, 900));
+        }
+      }, BUBBLE_MS);
+    }
+    forcePlay(name) {
+      if (this.dead || !isAnimName(name) || this.player.unavailable.has(name)) return;
+      this.clearTimers();
+      this.state = "react";
+      void this.runOnce(name, "react");
+    }
+    destroy() {
+      var _a, _b, _c, _d, _e, _f;
+      if (this.dead && !this.host) {
+        if (_Pet.current === this) _Pet.current = void 0;
+        return;
+      }
+      this.dead = true;
+      this.clearTimers();
+      (_a = this.flightCancel) == null ? void 0 : _a.call(this);
+      (_b = this.chatAbort) == null ? void 0 : _b.abort();
+      this.chatAbort = null;
+      (_c = this.detachDrag) == null ? void 0 : _c.call(this);
+      document.removeEventListener("pointerdown", this.onActivity, { capture: true });
+      document.removeEventListener("keydown", this.onActivity, { capture: true });
+      document.removeEventListener("visibilitychange", this.onVisibility);
+      window.removeEventListener("resize", this.onResize);
+      (_d = this.bubble) == null ? void 0 : _d.destroy();
+      (_e = this.player) == null ? void 0 : _e.pause();
+      (_f = this.host) == null ? void 0 : _f.remove();
+      if (_Pet.current === this) _Pet.current = void 0;
+    }
+  };
+
+  // src/index.ts
+  function mount(options = {}) {
+    if (typeof window === "undefined" || typeof document === "undefined") {
+      throw new Error("[dafeiyu] mount() \u53EA\u80FD\u5728\u6D4F\u89C8\u5668\u91CC\u8C03\u7528");
+    }
+    let pet = null;
+    const ensure = () => {
+      if (!pet) pet = new Pet(options);
+      return pet;
+    };
+    if (document.body) {
+      pet = new Pet(options);
+    } else {
+      document.addEventListener("DOMContentLoaded", () => ensure(), { once: true });
+    }
+    return {
+      destroy: () => {
+        pet == null ? void 0 : pet.destroy();
+        pet = null;
+      },
+      say: (text) => ensure().forceSay(text),
+      play: (name) => ensure().forcePlay(name),
+      openChat: () => ensure().openChat(),
+      closeChat: () => ensure().closeChat()
+    };
+  }
+  var index_default = { mount };
+  return __toCommonJS(index_exports);
+})();
