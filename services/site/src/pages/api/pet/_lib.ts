@@ -30,7 +30,9 @@ export function systemPrompt(kind: 'whisper' | 'chat'): string {
 // ── DeepSeek（OpenAI 兼容接口）────────────────────────────────
 
 const DS_URL = 'https://api.deepseek.com/chat/completions'
-const DS_MODEL = 'deepseek-chat'
+// 2026-10 官方 API 只剩 deepseek-flash / deepseek-v4-pro 两个模型名（deepseek-chat 已废弃）。
+// flash 是官方推荐默认，输出 $0.6~1.2/百万 token，比 pro 便宜 3 倍，宠物场景够用
+const DS_MODEL = 'deepseek-flash'
 
 /**
  * 密钥只在服务端读取（请求时现取，不进构建产物）。
@@ -59,7 +61,13 @@ export async function deepseek(
         'content-type': 'application/json',
         authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`
       },
-      body: JSON.stringify({ model: DS_MODEL, ...body }),
+      body: JSON.stringify({
+        model: DS_MODEL,
+        // flash 默认开启思考模式（thinking.type 默认 enabled）：碎碎念和闲聊都不需要，
+        // 先思考再回答会拖慢首响应、思考 token 还按输出计费，显式关掉
+        thinking: { type: 'disabled' },
+        ...body
+      }),
       signal: ctrl.signal
     })
   } finally {
